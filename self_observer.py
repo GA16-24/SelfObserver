@@ -17,11 +17,29 @@ import daily_report
 
 
 # ===============================================
+# Allowed modes
+# ===============================================
+
+ALLOWED_MODES = [
+    "coding",
+    "gaming",
+    "video",
+    "chatting",
+    "ai_chat",
+    "browsing",
+    "reading",
+    "writing",
+    "system",
+    "file_management",
+    "unknown",
+]
+
+
+# ===============================================
 # CONFIG
 # ===============================================
 
 LOG_DIR = "logs"
-LOG_FILE = os.path.join(LOG_DIR, "screen_log.jsonl")
 CATEGORIES_FILE = "categories.json"
 
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
@@ -29,6 +47,11 @@ MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
 
 os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def log_path_for_date(day):
+    """Return the JSONL log path for a given date object."""
+    return os.path.join(LOG_DIR, f"screen_log_{day.isoformat()}.jsonl")
 
 
 # ===============================================
@@ -49,7 +72,33 @@ def save_categories(cat):
 def normalize_category(cat):
     if not cat:
         return "unknown"
-    return cat.lower().strip().replace(" ", "_").replace("-", "_")
+    cleaned = cat.lower().strip().replace(" ", "_").replace("-", "_")
+    return cleaned if cleaned in ALLOWED_MODES else "unknown"
+
+
+def parse_model_json(raw, fallback_mode="unknown"):
+    """
+    Extract and sanitize model JSON to reduce invalid outputs.
+    """
+    try:
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
+    except Exception:
+        data = {}
+
+    mode = normalize_category(data.get("mode")) if isinstance(data, dict) else "unknown"
+    conf = data.get("confidence", 0.0) if isinstance(data, dict) else 0.0
+
+    try:
+        conf = max(0.0, min(1.0, float(conf)))
+    except Exception:
+        conf = 0.0
+
+    if mode == "unknown":
+        mode = fallback_mode
+
+    return {"mode": mode, "confidence": conf}
 
 
 # ===============================================
@@ -112,6 +161,14 @@ def try_get_chrome_url():
 # ===============================================
 
 def ollama_text(prompt):
+    prompt = f"""
+You are a strict classifier. Only respond with JSON in the form {{"mode": "<mode>", "confidence": <0-1>}}.
+Allowed modes: {', '.join(ALLOWED_MODES)}.
+If unsure, return {{"mode":"unknown","confidence":0}}.
+
+Context:
+{prompt}
+"""
     try:
         result = subprocess.run(
             [OLLAMA, "run", MODEL_TEXT],
@@ -120,11 +177,8 @@ def ollama_text(prompt):
             timeout=20
         )
         raw = result.stdout.decode("utf-8", "ignore")
-
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
-        return json.loads(raw[start:end])
-    except:
+        return parse_model_json(raw)
+    except Exception:
         return {"mode": "unknown", "confidence": 0.0}
 
 # ===============================================
@@ -182,7 +236,14 @@ def ollama_vision(prompt, base64_img):
     使用 stdin 输入 JSON，而不是 CLI 参数。
     """
     payload = {
-        "prompt": prompt,
+        "prompt": f"""
+You are a strict classifier. Only respond with JSON in the form {{"mode": "<mode>", "confidence": <0-1>}}.
+Allowed modes: {', '.join(ALLOWED_MODES)}.
+If unsure, return {{"mode":"unknown","confidence":0}}.
+
+Context:
+{prompt}
+""",
         "images": [base64_img]
     }
 
@@ -194,11 +255,8 @@ def ollama_vision(prompt, base64_img):
             timeout=25
         )
         raw = result.stdout.decode("utf-8", "ignore")
-
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
-        return json.loads(raw[start:end])
-    except:
+        return parse_model_json(raw)
+    except Exception:
         return {"mode": "unknown", "confidence": 0.0}
 
 
@@ -215,39 +273,73 @@ def fused_classification(snapshot, base64_img, known_categories):
     """
 
     text_prompt = f"""
-You classify activity based on window data:
+You classify computer activity. Use ONLY this JSON output: {{"mode": "<mode>", "confidence": <0-1>}}.
+Allowed modes: {', '.join(ALLOWED_MODES)}.
 
+Window data:
 {json.dumps(snapshot, indent=2)}
 
-Return only JSON:
-{{"mode":"...", "confidence":0.0}}
+Rules:
+- Prefer gaming/video/chatting when titles or executables strongly match.
+- If the URL suggests AI chat (openai/chatgpt), choose ai_chat.
+- When uncertain, respond with unknown and low confidence.
 """
 
     vision_prompt = """
-Describe the user's activity. Focus on:
-- Is this a VIDEO page?
-- Is this a GAME screen?
-- Is the user chatting?
-- Is it a document or browsing?
-
-Return JSON only:
-{"mode":"...", "confidence":0.0}
+Describe the user's activity and classify it. Return only JSON: {"mode":"<mode>", "confidence":<0-1>}.
+Focus on whether the view is a video player, a game UI, a chat UI, a document, or browsing.
 """
 
     text_out = ollama_text(text_prompt)
     vis_out = ollama_vision(vision_prompt, base64_img)
 
-    # Fusion rule: Vision wins for video/game/chat UI
+    # Heuristic boost: URL/title/exe hints
+    hints = heuristic_label(snapshot)
+    if hints:
+        return hints
+
+    # Fusion rule: Vision wins for visual domains; otherwise lean toward more confident model
     strong_keywords = ["video", "gaming", "chatting"]
 
-    if vis_out["mode"] in strong_keywords:
+    if vis_out["mode"] in strong_keywords and vis_out["confidence"] >= 0.4:
         return vis_out
 
-    # else text-based dominates
-    if text_out["confidence"] >= vis_out["confidence"]:
+    if text_out["confidence"] + 0.1 >= vis_out["confidence"]:
         return text_out
 
     return vis_out
+
+
+def heuristic_label(snapshot):
+    exe = (snapshot.get("exe") or "").lower()
+    title = (snapshot.get("title") or "").lower()
+    url = (snapshot.get("url") or "").lower()
+    labels = " ".join([x.lower() for x in snapshot.get("uia_labels", [])])
+
+    if any(k in url for k in ["youtube", "bilibili", "tiktok", "youku", "netflix"]):
+        return {"mode": "video", "confidence": 0.9}
+    if any(k in title for k in ["youtube", "video"]):
+        return {"mode": "video", "confidence": 0.7}
+    if any(k in exe for k in ["obs64", "vlc", "mpv", "potplayer"]):
+        return {"mode": "video", "confidence": 0.7}
+
+    if "chrome.exe" in exe and any(k in url for k in ["openai", "chatgpt", "poe.com", "claude.ai"]):
+        return {"mode": "ai_chat", "confidence": 0.8}
+    if any(k in exe for k in ["wechat", "weixin", "qq", "discord", "slack", "teams"]):
+        return {"mode": "chatting", "confidence": 0.7}
+
+    if any(k in exe for k in ["code.exe", "pycharm", "idea64", "devenv"]):
+        return {"mode": "coding", "confidence": 0.7}
+    if any(k in exe for k in ["word", "notepad", "onenote", "typora", "notion"]):
+        return {"mode": "writing", "confidence": 0.6}
+    if any(k in exe for k in ["excel", "powerpnt", "wps"]):
+        return {"mode": "reading", "confidence": 0.6}
+    if any(k in exe for k in ["explorer.exe", "finder", "totalcmd"]):
+        return {"mode": "file_management", "confidence": 0.6}
+    if any(k in labels for k in ["game", "play", "hp", "health", "inventory"]):
+        return {"mode": "gaming", "confidence": 0.6}
+
+    return None
 
 
 # ===============================================
@@ -346,8 +438,8 @@ def stable_classification(cat_map):
 # Logging
 # ===============================================
 
-def write_log(entry):
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
+def write_log(entry, log_path):
+    with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
@@ -389,17 +481,24 @@ def main():
     print("[SelfObserver v10] Vision + OCR + Text Fusion")
 
     cat_map = load_categories()
+    current_day = datetime.now().date()
+    log_path = log_path_for_date(current_day)
 
     while True:
         snap = stable_classification(cat_map)
 
+        now = datetime.now()
+        if now.date() != current_day:
+            current_day = now.date()
+            log_path = log_path_for_date(current_day)
+
         entry = {
-            "ts": datetime.now().isoformat(timespec="seconds"),
+            "ts": now.isoformat(timespec="seconds"),
             **snap
         }
 
         pretty_print(entry)
-        write_log(entry)
+        write_log(entry, log_path)
 
         time.sleep(2)
 
