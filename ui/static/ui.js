@@ -190,8 +190,16 @@ async function updatePie() {
     const res = await fetch("/api/stats/day");
     const data = await res.json();
 
-    const labels = Object.keys(data);
-    const values = Object.values(data).map(v => v / 60);
+    let labels = Object.keys(data);
+    let values = Object.values(data).map(v => v / 60);
+
+    // Keep the UI stable even when there is no data yet.
+    if (!labels.length) {
+        labels = ["No data yet"];
+        values = [1];
+    }
+
+    const colors = labels.map(l => dynamicColor(l.toLowerCase()) || "#94a3b8");
 
     if (!pieChart) {
         pieChart = new Chart(document.getElementById("pieChart"), {
@@ -200,6 +208,7 @@ async function updatePie() {
                 labels: labels,
                 datasets: [{
                     data: values,
+                    backgroundColor: colors,
                     borderWidth: 2,
                     hoverOffset: 25
                 }]
@@ -224,6 +233,7 @@ async function updatePie() {
 
     pieChart.data.labels = labels;
     pieChart.data.datasets[0].data = values;
+    pieChart.data.datasets[0].backgroundColor = colors;
     pieChart.update({ duration: 1200, easing: "easeInOutQuart" });
 }
 
