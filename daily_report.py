@@ -7,8 +7,9 @@ from collections import defaultdict
 VAULT_PATH = r"D:\40-Personal\003-ObsidianVault\My awesome vault"
 REPORT_DIR = os.path.join(VAULT_PATH, "SelfObserverDaily")
 
-# === Log-Datei von SelfObserver ===
-LOG_FILE = os.path.join("logs", "screen_log.jsonl")
+# === Log-Dateien von SelfObserver ===
+LOG_DIR = "logs"
+LEGACY_LOG = os.path.join(LOG_DIR, "screen_log.jsonl")
 
 os.makedirs(REPORT_DIR, exist_ok=True)
 
@@ -16,13 +17,40 @@ os.makedirs(REPORT_DIR, exist_ok=True)
 # ------------------------------------------------------
 # 1. Logs laden
 # ------------------------------------------------------
-def load_all_logs():
-    """Lädt alle Log-Einträge aus screen_log.jsonl."""
+def latest_log_path():
+    """Finde die aktuellste Tages-Logdatei (Fallback: legacy screen_log.jsonl)."""
+    if not os.path.exists(LOG_DIR):
+        return LEGACY_LOG if os.path.exists(LEGACY_LOG) else None
+
+    newest = None
+    newest_date = None
+
+    for name in os.listdir(LOG_DIR):
+        if not (name.startswith("screen_log_") and name.endswith(".jsonl")):
+            continue
+        date_part = name[len("screen_log_"):-len(".jsonl")]
+        try:
+            parsed = datetime.fromisoformat(date_part).date()
+        except Exception:
+            continue
+        if not newest_date or parsed > newest_date:
+            newest_date = parsed
+            newest = os.path.join(LOG_DIR, name)
+
+    if newest:
+        return newest
+
+    return LEGACY_LOG if os.path.exists(LEGACY_LOG) else None
+
+
+def load_all_logs(log_path=None):
+    """Lädt alle Log-Einträge aus der neuesten Log-Datei."""
     entries = []
-    if not os.path.exists(LOG_FILE):
+    log_file = log_path or latest_log_path()
+    if not log_file or not os.path.exists(log_file):
         return entries
 
-    with open(LOG_FILE, "r", encoding="utf-8") as f:
+    with open(log_file, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -35,7 +63,7 @@ def load_all_logs():
                     continue
                 ts = datetime.fromisoformat(ts_str)
                 entries.append({"ts": ts, "mode": mode})
-            except Exception as e:
+            except Exception:
                 # Fehlerhafte Zeilen werden einfach übersprungen
                 continue
 
@@ -176,7 +204,7 @@ def build_optimization_section(durations, longest_segment, switches):
 # ------------------------------------------------------
 # 4. Report-Text erzeugen
 # ------------------------------------------------------
-def format_report(date_str, durations, longest_segment, switches, entries_count):
+def format_report(date_str, durations, longest_segment, switches, entries_count, log_path):
     total_min = sum(durations.values())
     work = durations.get("work", 0.0)
     video = durations.get("video", 0.0)
@@ -230,7 +258,10 @@ def format_report(date_str, durations, longest_segment, switches, entries_count)
 
     # 4. Referenz
     lines.append("## 4. Datenreferenz")
-    lines.append("Die Rohdaten liegen in der Datei `logs/screen_log.jsonl`.\n")
+    if log_path:
+        lines.append(f"Die Rohdaten liegen in der Datei `{log_path}`.\n")
+    else:
+        lines.append("Es wurde keine Log-Datei gefunden.\n")
 
     return "\n".join(lines)
 
@@ -240,7 +271,8 @@ def format_report(date_str, durations, longest_segment, switches, entries_count)
 # ------------------------------------------------------
 def generate_daily_report():
     """Wird von self_observer.py einmal täglich (z. B. 22:00) aufgerufen."""
-    all_entries = load_all_logs()
+    log_path = latest_log_path()
+    all_entries = load_all_logs(log_path)
     today_entries = filter_today(all_entries)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
@@ -258,7 +290,7 @@ def generate_daily_report():
         return report_path
 
     durations, longest_segment, switches = compute_durations_and_segments(today_entries)
-    report_md = format_report(date_str, durations, longest_segment, switches, len(today_entries))
+    report_md = format_report(date_str, durations, longest_segment, switches, len(today_entries), log_path)
 
     report_path = os.path.join(REPORT_DIR, f"report_{date_str}.md")
     with open(report_path, "w", encoding="utf-8") as f:

@@ -26,7 +26,7 @@ function dynamicColor(mode) {
         system: "#AAB2C8",
         idle: "#76839B",
     };
-    return map[mode] || "#FFFFFF";
+    return map[mode?.toLowerCase?.()] || "#94a3b8";
 }
 
 function themeStyle(mode, ctx) {
@@ -41,7 +41,7 @@ function themeStyle(mode, ctx) {
                 backgroundColor: glowGradient(ctx, color),
                 borderColor: color,
                 borderDash: [5, 5],
-                pointRadius: 0,
+                pointRadius: 4,
             };
 
         case "apple":
@@ -51,7 +51,7 @@ function themeStyle(mode, ctx) {
                 fill: true,
                 backgroundColor: appleGradient(ctx, color),
                 borderColor: color,
-                pointRadius: 2,
+                pointRadius: 4,
             };
 
         case "dsm":
@@ -61,7 +61,7 @@ function themeStyle(mode, ctx) {
                 fill: false,
                 backgroundColor: "transparent",
                 borderColor: color + "cc",
-                pointRadius: 0,
+                pointRadius: 3,
             };
 
         case "cyber":
@@ -71,7 +71,7 @@ function themeStyle(mode, ctx) {
                 fill: true,
                 backgroundColor: neonGlow(ctx, color),
                 borderColor: color,
-                pointRadius: 2,
+                pointRadius: 4,
             };
 
         default:
@@ -190,8 +190,16 @@ async function updatePie() {
     const res = await fetch("/api/stats/day");
     const data = await res.json();
 
-    const labels = Object.keys(data);
-    const values = Object.values(data).map(v => v / 60);
+    let labels = Object.keys(data);
+    let values = Object.values(data).map(v => v / 60);
+
+    // Keep the UI stable even when there is no data yet.
+    if (!labels.length) {
+        labels = ["No data yet"];
+        values = [1];
+    }
+
+    const colors = labels.map(l => dynamicColor(l.toLowerCase()) || "#94a3b8");
 
     if (!pieChart) {
         pieChart = new Chart(document.getElementById("pieChart"), {
@@ -200,6 +208,7 @@ async function updatePie() {
                 labels: labels,
                 datasets: [{
                     data: values,
+                    backgroundColor: colors,
                     borderWidth: 2,
                     hoverOffset: 25
                 }]
@@ -224,6 +233,7 @@ async function updatePie() {
 
     pieChart.data.labels = labels;
     pieChart.data.datasets[0].data = values;
+    pieChart.data.datasets[0].backgroundColor = colors;
     pieChart.update({ duration: 1200, easing: "easeInOutQuart" });
 }
 
@@ -231,95 +241,49 @@ async function updatePie() {
    Line Chart (Persistent + Smooth)
 ============================================================ */
 
-function loadLineHistory() {
-    const saved = localStorage.getItem("line_history");
-    if (!saved) return null;
-
-    try {
-        return JSON.parse(saved);
-    } catch {
-        return null;
-    }
-}
-
-function saveLineHistory() {
-    if (!lineChart) return;
-
-    const cleanData = {
-        labels: [...lineChart.data.labels],
-        datasets: lineChart.data.datasets.map(d => ({
-            label: d.label,
-            data: [...d.data]
-        }))
-    };
-
-    localStorage.setItem("line_history", JSON.stringify(cleanData));
-}
-
 async function updateLine() {
-    const res = await fetch("/api/stats/hour");
+    const res = await fetch("/api/stats/day");
     const data = await res.json();
-    if (!data.length) return;
 
-    const latest = data[data.length - 1];
-    const t = latest.ts.slice(11, 19);
+    let labels = Object.keys(data);
+    let values = Object.values(data).map(v => v / 60);
+
+    if (!labels.length) {
+        labels = ["No data yet"];
+        values = [0];
+    }
 
     if (!lineChart) {
-        const saved = loadLineHistory();
-
         const ctx = document.getElementById("lineChart").getContext("2d");
-
-        if (saved) {
-            saved.datasets.forEach(ds => {
-                Object.assign(ds, themeStyle(ds.label, ctx));
-            });
-
-            lineChart = new Chart(document.getElementById("lineChart"), {
-                type: "line",
-                data: saved,
-                options: {
-                    animation: false,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { labels: { color: "#fff" } } }
-                }
-            });
-        } else {
-            lineChart = new Chart(document.getElementById("lineChart"), {
-                type: "line",
-                data: { labels: [], datasets: [] },
-                options: {
-                    animation: false,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { labels: { color: "#fff" } } }
-                }
-            });
-        }
+        lineChart = new Chart(document.getElementById("lineChart"), {
+            type: "line",
+            data: { labels: [], datasets: [] },
+            options: {
+                animation: false,
+                scales: {
+                    x: { ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } },
+                    y: { beginAtZero: true, ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } }
+                },
+                plugins: { legend: { labels: { color: "#fff" } } }
+            }
+        });
     }
-
-    lineChart.data.labels.push(t);
 
     const ctx = document.getElementById("lineChart").getContext("2d");
 
-    let ds = lineChart.data.datasets.find(d => d.label === latest.mode);
-    if (!ds) {
-        ds = {
-            label: latest.mode,
-            data: Array(lineChart.data.labels.length - 1).fill(null)
-        };
-        Object.assign(ds, themeStyle(latest.mode, ctx));
-        lineChart.data.datasets.push(ds);
-    }
+    const colors = labels.map(l => dynamicColor(l.toLowerCase()) || "#94a3b8");
 
-    lineChart.data.datasets.forEach(d => d.data.push(null));
-    ds.data[ds.data.length - 1] = ds.data.filter(x => x !== null).length + 1;
-
-    if (lineChart.data.labels.length > 120) {
-        lineChart.data.labels.shift();
-        lineChart.data.datasets.forEach(d => d.data.shift());
-    }
+    lineChart.data.labels = labels;
+    lineChart.data.datasets = [Object.assign({
+        label: "Usage (hrs)",
+        data: values,
+        pointBackgroundColor: colors,
+        pointBorderColor: colors,
+        pointRadius: 5,
+        spanGaps: true,
+    }, themeStyle("usage", ctx))];
 
     lineChart.update();
-    saveLineHistory();
 }
 
 /* ============================================================
