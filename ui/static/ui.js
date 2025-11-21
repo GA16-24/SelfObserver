@@ -4,6 +4,21 @@
 let pieChart = null;
 let lineChart = null;
 
+function formatMinutesFriendly(minutes) {
+    const m = minutes || 0;
+    if (m >= 60) {
+        const hours = m / 60;
+        if (Math.abs(hours - Math.round(hours)) < 0.05) {
+            return `${Math.round(hours)}h`;
+        }
+        return `${hours.toFixed(1)}h`;
+    }
+    if (m >= 10) {
+        return `${Math.round(m)}m`;
+    }
+    return `${m.toFixed(1)}m`;
+}
+
 /* ============================================================
    THEME SYSTEM
 ============================================================ */
@@ -191,7 +206,7 @@ async function updatePie() {
     const data = await res.json();
 
     let labels = Object.keys(data);
-    let values = Object.values(data).map(v => v / 3600);
+    let values = Object.values(data).map(v => v / 60);
 
     // Keep the UI stable even when there is no data yet.
     if (!labels.length) {
@@ -223,6 +238,15 @@ async function updatePie() {
                             color: "#fff",
                             font: { size: 16, weight: "600" },
                             usePointStyle: true,
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.label || "";
+                                const minutes = context.parsed;
+                                return `${label}: ${formatMinutesFriendly(minutes)}`;
+                            }
                         }
                     }
                 }
@@ -275,13 +299,27 @@ async function updateLine() {
 
     lineChart.data.labels = labels;
     lineChart.data.datasets = [Object.assign({
-        label: "Usage (hrs)",
+        label: "Usage",
         data: values,
         pointBackgroundColor: colors,
         pointBorderColor: colors,
         pointRadius: 5,
         spanGaps: true,
     }, themeStyle("usage", ctx))];
+
+    lineChart.options.scales.y.ticks = Object.assign({}, lineChart.options.scales.y.ticks, {
+        callback: (val) => formatMinutesFriendly(val)
+    });
+
+    lineChart.options.plugins.tooltip = {
+        callbacks: {
+            label: function (context) {
+                const label = context.dataset.label || "Usage";
+                const minutes = context.parsed.y;
+                return `${label}: ${formatMinutesFriendly(minutes)}`;
+            }
+        }
+    };
 
     lineChart.update();
 }
