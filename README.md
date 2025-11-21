@@ -56,6 +56,31 @@ The Markdown file will be placed under `SelfObserverDaily` in your Obsidian vaul
 - Temporary screenshot for the watcher: `screen_shot_tmp.jpg`
 - Temporary screenshot for the vision loop: `screen.png`
 
+## Tuning classification heuristics
+The watcher uses a small, ordered list of heuristics before falling back to the text/vision models. To keep labels future-proof
+as new apps or window titles appear, you can add or override rules in `heuristics.json` without touching the code. The file
+accepts a list of rule objects, checked from top to bottom:
+
+```json
+[
+  {
+    "mode": "writing",
+    "confidence": 0.8,
+    "exe_contains": ["joplin", "logseq"],
+    "title_contains": ["notes"]
+  },
+  {
+    "mode": "coding",
+    "confidence": 0.75,
+    "exe_exact": ["code.exe"],
+    "url_contains": ["github.com"]
+  }
+]
+```
+
+Supported keys per rule: `exe_exact`, `exe_contains`, `title_contains`, `url_contains`, and `label_contains` (for UI Automation
+labels). Rules are sanitized automatically, and the watcher hot-reloads them whenever `heuristics.json` changes.
+
 ## Notes
 - The project currently targets Windows APIs for foreground window detection and may need adaptation for other platforms.
 - The Ollama invocations rely on JSON-only responses; if you customize prompts, ensure they remain strictly machine-readable.

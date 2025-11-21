@@ -41,12 +41,35 @@ ALLOWED_MODES = [
 
 LOG_DIR = "logs"
 CATEGORIES_FILE = "categories.json"
+HEURISTICS_FILE = "heuristics.json"
 
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
 
 os.makedirs(LOG_DIR, exist_ok=True)
+
+
+# ===============================================
+# Default heuristics (extendable via heuristics.json)
+# ===============================================
+
+DEFAULT_HEURISTICS = [
+    {"mode": "video", "confidence": 0.9, "url_contains": ["youtube", "bilibili", "tiktok", "youku", "netflix"]},
+    {"mode": "video", "confidence": 0.7, "title_contains": ["youtube", "video"]},
+    {"mode": "video", "confidence": 0.7, "exe_contains": ["obs64", "vlc", "mpv", "potplayer"]},
+
+    {"mode": "ai_chat", "confidence": 0.8, "exe_exact": ["chrome.exe"], "url_contains": ["openai", "chatgpt", "poe.com", "claude.ai"]},
+    {"mode": "chatting", "confidence": 0.7, "exe_contains": ["wechat", "weixin", "qq", "discord", "slack", "teams"]},
+
+    {"mode": "coding", "confidence": 0.7, "exe_contains": ["code.exe", "pycharm", "idea64", "devenv"]},
+    {"mode": "writing", "confidence": 0.7, "exe_contains": ["obsidian"]},
+    {"mode": "writing", "confidence": 0.6, "exe_contains": ["word", "notepad", "onenote", "typora", "notion"]},
+    {"mode": "reading", "confidence": 0.6, "exe_contains": ["excel", "powerpnt", "wps"]},
+    {"mode": "file_management", "confidence": 0.6, "exe_contains": ["explorer.exe", "finder", "totalcmd"]},
+
+    {"mode": "gaming", "confidence": 0.6, "label_contains": ["game", "play", "hp", "health", "inventory"]},
+]
 
 
 def log_path_for_date(day):
@@ -74,6 +97,55 @@ def normalize_category(cat):
         return "unknown"
     cleaned = cat.lower().strip().replace(" ", "_").replace("-", "_")
     return cleaned if cleaned in ALLOWED_MODES else "unknown"
+
+
+def load_heuristics():
+    """Return default heuristics plus optional user rules from heuristics.json."""
+
+    def _clean_rule(rule):
+        if not isinstance(rule, dict):
+            return None
+
+        mode = normalize_category(rule.get("mode"))
+        if mode == "unknown":
+            return None
+
+        try:
+            conf = float(rule.get("confidence", 0.0))
+        except Exception:
+            conf = 0.0
+        conf = max(0.0, min(1.0, conf))
+
+        allowed_keys = {
+            "exe_exact", "exe_contains", "title_contains", "url_contains", "label_contains"
+        }
+        cleaned = {}
+        for k, v in rule.items():
+            if k in allowed_keys and isinstance(v, (list, tuple)) and v:
+                cleaned[k] = [str(x).lower() for x in v]
+
+        if not cleaned:
+            return None
+
+        return {
+            "mode": mode,
+            "confidence": conf,
+            **cleaned
+        }
+
+    user_rules = []
+    if os.path.exists(HEURISTICS_FILE):
+        try:
+            raw = json.load(open(HEURISTICS_FILE, "r", encoding="utf-8"))
+            if isinstance(raw, list):
+                for r in raw:
+                    cleaned = _clean_rule(r)
+                    if cleaned:
+                        user_rules.append(cleaned)
+        except Exception:
+            pass
+
+    return user_rules + DEFAULT_HEURISTICS
 
 
 def parse_model_json(raw, fallback_mode="unknown"):
@@ -264,7 +336,7 @@ Context:
 # TEXT + VISION Fusion
 # ===============================================
 
-def fused_classification(snapshot, base64_img, known_categories):
+def fused_classification(snapshot, base64_img, heuristics_rules):
     """
     Combine:
     1) TEXT 分析
@@ -281,6 +353,7 @@ Window data:
 
 Rules:
 - Prefer gaming/video/chatting when titles or executables strongly match.
+- Treat note-taking apps (Obsidian, Notion, OneNote, Typora) as writing/research, not gaming.
 - If the URL suggests AI chat (openai/chatgpt), choose ai_chat.
 - When uncertain, respond with unknown and low confidence.
 """
@@ -294,7 +367,7 @@ Focus on whether the view is a video player, a game UI, a chat UI, a document, o
     vis_out = ollama_vision(vision_prompt, base64_img)
 
     # Heuristic boost: URL/title/exe hints
-    hints = heuristic_label(snapshot)
+    hints = heuristic_label(snapshot, heuristics_rules)
     if hints:
         return hints
 
@@ -310,34 +383,28 @@ Focus on whether the view is a video player, a game UI, a chat UI, a document, o
     return vis_out
 
 
-def heuristic_label(snapshot):
+def heuristic_label(snapshot, rules):
     exe = (snapshot.get("exe") or "").lower()
     title = (snapshot.get("title") or "").lower()
     url = (snapshot.get("url") or "").lower()
     labels = " ".join([x.lower() for x in snapshot.get("uia_labels", [])])
 
-    if any(k in url for k in ["youtube", "bilibili", "tiktok", "youku", "netflix"]):
-        return {"mode": "video", "confidence": 0.9}
-    if any(k in title for k in ["youtube", "video"]):
-        return {"mode": "video", "confidence": 0.7}
-    if any(k in exe for k in ["obs64", "vlc", "mpv", "potplayer"]):
-        return {"mode": "video", "confidence": 0.7}
+    def matches(rule):
+        if "exe_exact" in rule and exe not in [x.lower() for x in rule["exe_exact"]]:
+            return False
+        if "exe_contains" in rule and not any(k in exe for k in rule["exe_contains"]):
+            return False
+        if "title_contains" in rule and not any(k in title for k in rule["title_contains"]):
+            return False
+        if "url_contains" in rule and not any(k in url for k in rule["url_contains"]):
+            return False
+        if "label_contains" in rule and not any(k in labels for k in rule["label_contains"]):
+            return False
+        return True
 
-    if "chrome.exe" in exe and any(k in url for k in ["openai", "chatgpt", "poe.com", "claude.ai"]):
-        return {"mode": "ai_chat", "confidence": 0.8}
-    if any(k in exe for k in ["wechat", "weixin", "qq", "discord", "slack", "teams"]):
-        return {"mode": "chatting", "confidence": 0.7}
-
-    if any(k in exe for k in ["code.exe", "pycharm", "idea64", "devenv"]):
-        return {"mode": "coding", "confidence": 0.7}
-    if any(k in exe for k in ["word", "notepad", "onenote", "typora", "notion"]):
-        return {"mode": "writing", "confidence": 0.6}
-    if any(k in exe for k in ["excel", "powerpnt", "wps"]):
-        return {"mode": "reading", "confidence": 0.6}
-    if any(k in exe for k in ["explorer.exe", "finder", "totalcmd"]):
-        return {"mode": "file_management", "confidence": 0.6}
-    if any(k in labels for k in ["game", "play", "hp", "health", "inventory"]):
-        return {"mode": "gaming", "confidence": 0.6}
+    for rule in rules:
+        if matches(rule):
+            return {"mode": rule["mode"], "confidence": rule.get("confidence", 0.6)}
 
     return None
 
@@ -367,6 +434,12 @@ def sanity_correct(entry):
     if any(x in exe for x in ["wechat", "weixin", "qq", "discord"]):
         return "chatting"
 
+    # CODING / WRITING SAFEGUARDS (avoid false gaming)
+    if "code.exe" in exe:
+        return "coding"
+    if "obsidian" in exe or "obsidian" in title:
+        return "writing"
+
     # AI CHAT
     if any(k in url for k in ["openai", "chatgpt"]):
         return "ai_chat"
@@ -380,7 +453,7 @@ def sanity_correct(entry):
 # Stable classification
 # ===============================================
 
-def stable_classification(cat_map):
+def stable_classification(cat_map, heuristics_rules):
     modes = []
     confs = []
     snapshot = None
@@ -405,7 +478,7 @@ def stable_classification(cat_map):
             "url": url
         }
 
-        fused = fused_classification(snapshot, b64img, cat_map)
+        fused = fused_classification(snapshot, b64img, heuristics_rules)
         modes.append(fused["mode"])
         confs.append(fused["confidence"])
 
@@ -481,11 +554,19 @@ def main():
     print("[SelfObserver v10] Vision + OCR + Text Fusion")
 
     cat_map = load_categories()
+    heuristics_rules = load_heuristics()
+    heuristics_mtime = os.path.getmtime(HEURISTICS_FILE) if os.path.exists(HEURISTICS_FILE) else None
     current_day = datetime.now().date()
     log_path = log_path_for_date(current_day)
 
     while True:
-        snap = stable_classification(cat_map)
+        if os.path.exists(HEURISTICS_FILE):
+            current_mtime = os.path.getmtime(HEURISTICS_FILE)
+            if heuristics_mtime is None or current_mtime > heuristics_mtime:
+                heuristics_rules = load_heuristics()
+                heuristics_mtime = current_mtime
+
+        snap = stable_classification(cat_map, heuristics_rules)
 
         now = datetime.now()
         if now.date() != current_day:
