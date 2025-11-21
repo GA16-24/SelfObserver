@@ -191,7 +191,7 @@ async function updatePie() {
     const data = await res.json();
 
     let labels = Object.keys(data);
-    let values = Object.values(data).map(v => v / 60);
+    let values = Object.values(data).map(v => v / 3600);
 
     // Keep the UI stable even when there is no data yet.
     if (!labels.length) {
@@ -260,7 +260,10 @@ async function updateLine() {
             data: { labels: [], datasets: [] },
             options: {
                 animation: false,
-                scales: { y: { beginAtZero: true } },
+                scales: {
+                    x: { ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } },
+                    y: { beginAtZero: true, ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } }
+                },
                 plugins: { legend: { labels: { color: "#fff" } } }
             }
         });

@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 from datetime import datetime
 from collections import defaultdict
 
@@ -11,7 +12,26 @@ REPORT_DIR = os.path.join(VAULT_PATH, "SelfObserverDaily")
 LOG_DIR = "logs"
 LEGACY_LOG = os.path.join(LOG_DIR, "screen_log.jsonl")
 
+OLLAMA = os.environ.get("OLLAMA_EXE", r"C:\\Users\\x1sci\\AppData\\Local\\Programs\\Ollama\\ollama.exe")
+REPORT_MODEL = os.environ.get("REPORT_MODEL", "qwen2.5:7b")
+
 os.makedirs(REPORT_DIR, exist_ok=True)
+
+ANALYSIS_PROMPT = (
+    "Du bist eine analytische Beobachtungs-KI. Deine Aufgabe ist es, das digitale "
+    "Nutzungsverhalten eines 15-jährigen Schülers anhand der gegebenen Rohdaten objektiv zu analysieren. "
+    "Die Daten können App-Nutzung, Tabs, Titel, Programme, Spiele, Chat-Inhalte, Zeitangaben, Tageszeiten "
+    "oder Nutzungsdauern enthalten. Du ordnest jede Aktivität sinnvoll in Kategorien wie Lernen, Recherche, "
+    "kreatives Arbeiten, Kommunikation, Gaming, Entertainment, Sport, Musik, Social Media oder Leerlauf ein "
+    "und leitest daraus klare Muster ab. Identifiziere die Interessen, Hobbys und häufig wiederkehrenden "
+    "Themen des Nutzers, erkenne seinen Tagesrhythmus, produktive Phasen, Konzentrationsabfälle und mögliche "
+    "Übernutzung. Erstelle ein Stärkenprofil des Nutzers, zeige potenzielle Risiken wie Überlastung, zu hohe "
+    "Social-Media- oder Gaming-Zeiten, fehlende Pausen oder Schlafverschiebungen auf und bleibe dabei "
+    "vollständig evidenzbasiert. Schließe deine Analyse mit konkreten, realistischen und umsetzbaren "
+    "Vorschlägen ab, die das Nutzungsverhalten verbessern können, zum Beispiel zur Zeitverteilung, zum Lernen, "
+    "zu Pausen, zum Schlafrhythmus oder zur Fokussierung. Die Ausgabe folgt immer dieser Struktur: kurze "
+    "Zusammenfassung, Nutzungsprofil, Interessen, Verhaltenstrends, Stärken, Risiken und Empfehlungen."
+)
 
 
 # ------------------------------------------------------
@@ -62,7 +82,12 @@ def load_all_logs(log_path=None):
                 if not ts_str:
                     continue
                 ts = datetime.fromisoformat(ts_str)
-                entries.append({"ts": ts, "mode": mode})
+                entries.append({
+                    "ts": ts,
+                    "mode": mode,
+                    "exe": obj.get("exe", ""),
+                    "title": obj.get("title", "")
+                })
             except Exception:
                 # Fehlerhafte Zeilen werden einfach übersprungen
                 continue
@@ -131,7 +156,80 @@ def compute_durations_and_segments(entries):
 
 
 # ------------------------------------------------------
-# 3. Optimierungsaufgaben generieren (regelbasiert)
+# 3. KI-Kontext aufbereiten
+# ------------------------------------------------------
+def summarize_timeline(entries, limit=30):
+    lines = []
+    for e in entries[-limit:]:
+        ts = e["ts"].strftime("%H:%M:%S")
+        exe = (e.get("exe") or "").split("\\")[-1]
+        title = e.get("title") or ""
+        if len(title) > 60:
+            title = title[:57] + "..."
+        lines.append(f"{ts} | {e.get('mode')} | {exe} | {title}")
+    return "\n".join(lines) if lines else "Keine Daten verfügbar"
+
+
+def build_llm_context(durations, longest_segment, switches, entries):
+    total_min = sum(durations.values())
+
+    duration_lines = []
+    for mode, mins in sorted(durations.items(), key=lambda kv: kv[0]):
+        duration_lines.append(f"- {mode}: {mins:.1f} Minuten")
+
+    longest_lines = []
+    for mode, mins in sorted(longest_segment.items(), key=lambda kv: kv[0]):
+        if mins > 0:
+            longest_lines.append(f"- {mode}: {mins:.1f} Minuten am Stück")
+
+    context = [
+        "Rohdaten des Tages:",
+        f"- Gesamtzeit: {total_min:.1f} Minuten",
+        f"- Moduswechsel: {switches}",
+        "- Dauer pro Modus:",
+        *duration_lines,
+        "- Längste zusammenhängende Phasen:",
+        *(longest_lines or ["(keine längeren Phasen)"]),
+        "- Neueste Zeitstempel (max 30):",
+        summarize_timeline(entries),
+    ]
+
+    return "\n".join(context)
+
+
+def run_llm_analysis(prompt):
+    try:
+        result = subprocess.run(
+            [OLLAMA, "run", REPORT_MODEL],
+            input=prompt.encode("utf-8"),
+            capture_output=True,
+            timeout=90,
+        )
+        out = result.stdout.decode("utf-8", "ignore").strip()
+        return out if out else None
+    except Exception:
+        return None
+
+
+def generate_llm_section(durations, longest_segment, switches, entries):
+    context = build_llm_context(durations, longest_segment, switches, entries)
+    prompt = (
+        f"{ANALYSIS_PROMPT}\n\n"
+        "Arbeite ausschließlich mit den bereitgestellten Rohdaten von heute und bleibe evidenzbasiert.\n"
+        "Nutze folgende Informationen:\n"
+        f"{context}\n\n"
+        "Antworte nur mit der geforderten Struktur und ohne zusätzliche Einleitungen."
+    )
+
+    analysis = run_llm_analysis(prompt)
+    if not analysis:
+        return "(Die KI-Analyse konnte nicht erzeugt werden – bitte Ollama/LLM-Setup prüfen.)"
+
+    return analysis
+
+
+# ------------------------------------------------------
+# 4. Optimierungsaufgaben generieren (regelbasiert)
 # ------------------------------------------------------
 def build_optimization_section(durations, longest_segment, switches):
     """
@@ -202,9 +300,9 @@ def build_optimization_section(durations, longest_segment, switches):
 
 
 # ------------------------------------------------------
-# 4. Report-Text erzeugen
+# 5. Report-Text erzeugen
 # ------------------------------------------------------
-def format_report(date_str, durations, longest_segment, switches, entries_count, log_path):
+def format_report(date_str, durations, longest_segment, switches, entries_count, log_path, today_entries):
     total_min = sum(durations.values())
     work = durations.get("work", 0.0)
     video = durations.get("video", 0.0)
@@ -256,8 +354,13 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
     lines.append(build_optimization_section(durations, longest_segment, switches))
     lines.append("")
 
-    # 4. Referenz
-    lines.append("## 4. Datenreferenz")
+    # 4. LLM-basierte Interpretation
+    lines.append("## 4. KI-Analyse des Nutzungstages")
+    lines.append(generate_llm_section(durations, longest_segment, switches, today_entries))
+    lines.append("")
+
+    # 5. Referenz
+    lines.append("## 5. Datenreferenz")
     if log_path:
         lines.append(f"Die Rohdaten liegen in der Datei `{log_path}`.\n")
     else:
@@ -290,7 +393,15 @@ def generate_daily_report():
         return report_path
 
     durations, longest_segment, switches = compute_durations_and_segments(today_entries)
-    report_md = format_report(date_str, durations, longest_segment, switches, len(today_entries), log_path)
+    report_md = format_report(
+        date_str,
+        durations,
+        longest_segment,
+        switches,
+        len(today_entries),
+        log_path,
+        today_entries,
+    )
 
     report_path = os.path.join(REPORT_DIR, f"report_{date_str}.md")
     with open(report_path, "w", encoding="utf-8") as f:
