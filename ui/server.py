@@ -71,6 +71,12 @@ def api_stats_day():
         last_ts = ts
         last_mode = entry["mode"]
 
+    # Count the time from the last log entry until now so the pie chart
+    # reflects the current active segment instead of dropping it.
+    if last_ts and last_mode:
+        delta = (datetime.datetime.now() - last_ts).total_seconds()
+        durations[last_mode] = durations.get(last_mode, 0) + max(delta, 0)
+
     return jsonify(durations)
 
 # ---------------------------------------------
