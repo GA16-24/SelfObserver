@@ -36,6 +36,25 @@ ALLOWED_MODES = [
 
 
 # ===============================================
+# Allowed modes
+# ===============================================
+
+ALLOWED_MODES = [
+    "coding",
+    "gaming",
+    "video",
+    "chatting",
+    "ai_chat",
+    "browsing",
+    "reading",
+    "writing",
+    "system",
+    "file_management",
+    "unknown",
+]
+
+
+# ===============================================
 # CONFIG
 # ===============================================
 
@@ -48,6 +67,33 @@ MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
 
 os.makedirs(LOG_DIR, exist_ok=True)
+
+
+# ===============================================
+# Default heuristics (extendable via heuristics.json)
+# ===============================================
+
+DEFAULT_HEURISTICS = [
+    {"mode": "video", "confidence": 0.9, "url_contains": ["youtube", "bilibili", "tiktok", "youku", "netflix"]},
+    {"mode": "video", "confidence": 0.7, "title_contains": ["youtube", "video"]},
+    {"mode": "video", "confidence": 0.7, "exe_contains": ["obs64", "vlc", "mpv", "potplayer"]},
+
+    {"mode": "ai_chat", "confidence": 0.8, "exe_exact": ["chrome.exe"], "url_contains": ["openai", "chatgpt", "poe.com", "claude.ai"]},
+    {"mode": "chatting", "confidence": 0.7, "exe_contains": ["wechat", "weixin", "qq", "discord", "slack", "teams"]},
+
+    {"mode": "coding", "confidence": 0.7, "exe_contains": ["code.exe", "pycharm", "idea64", "devenv"]},
+    {"mode": "writing", "confidence": 0.7, "exe_contains": ["obsidian"]},
+    {"mode": "writing", "confidence": 0.6, "exe_contains": ["word", "notepad", "onenote", "typora", "notion"]},
+    {"mode": "reading", "confidence": 0.6, "exe_contains": ["excel", "powerpnt", "wps"]},
+    {"mode": "file_management", "confidence": 0.6, "exe_contains": ["explorer.exe", "finder", "totalcmd"]},
+
+    {"mode": "gaming", "confidence": 0.6, "label_contains": ["game", "play", "hp", "health", "inventory"]},
+]
+
+
+def log_path_for_date(day):
+    """Return the JSONL log path for a given date object."""
+    return os.path.join(LOG_DIR, f"screen_log_{day.isoformat()}.jsonl")
 
 
 # ===============================================
@@ -381,6 +427,32 @@ Focus on whether the view is a video player, a game UI, a chat UI, a document, o
         return text_out
 
     return vis_out
+
+
+def heuristic_label(snapshot, rules):
+    exe = (snapshot.get("exe") or "").lower()
+    title = (snapshot.get("title") or "").lower()
+    url = (snapshot.get("url") or "").lower()
+    labels = " ".join([x.lower() for x in snapshot.get("uia_labels", [])])
+
+    def matches(rule):
+        if "exe_exact" in rule and exe not in [x.lower() for x in rule["exe_exact"]]:
+            return False
+        if "exe_contains" in rule and not any(k in exe for k in rule["exe_contains"]):
+            return False
+        if "title_contains" in rule and not any(k in title for k in rule["title_contains"]):
+            return False
+        if "url_contains" in rule and not any(k in url for k in rule["url_contains"]):
+            return False
+        if "label_contains" in rule and not any(k in labels for k in rule["label_contains"]):
+            return False
+        return True
+
+    for rule in rules:
+        if matches(rule):
+            return {"mode": rule["mode"], "confidence": rule.get("confidence", 0.6)}
+
+    return None
 
 
 def heuristic_label(snapshot, rules):

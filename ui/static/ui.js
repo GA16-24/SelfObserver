@@ -34,6 +34,21 @@ function formatMinutesFriendly(minutes) {
     return `${m.toFixed(1)}m`;
 }
 
+function formatMinutesFriendly(minutes) {
+    const m = minutes || 0;
+    if (m >= 60) {
+        const hours = m / 60;
+        if (Math.abs(hours - Math.round(hours)) < 0.05) {
+            return `${Math.round(hours)}h`;
+        }
+        return `${hours.toFixed(1)}h`;
+    }
+    if (m >= 10) {
+        return `${Math.round(m)}m`;
+    }
+    return `${m.toFixed(1)}m`;
+}
+
 /* ============================================================
    THEME SYSTEM
 ============================================================ */
@@ -46,17 +61,40 @@ function setTheme(t) {
     applyThemeToLineChart();
 }
 
+const DYNAMIC_COLOR_MAP = {
+    coding: "#4FA3FF",
+    browsing: "#B67BFF",
+    gaming: "#FF6161",
+    chatting: "#5CFF92",
+    video: "#FFCA66",
+    reading: "#56E0E0",
+    writing: "#F97316",
+    ai_chat: "#10B981",
+    music: "#A78BFA",
+    file_management: "#FACC15",
+    exploring: "#22D3EE",
+    settings: "#CBD5E1",
+    studying: "#34D399",
+    system: "#AAB2C8",
+    idle: "#76839B",
+    unknown: "#94a3b8",
+    maybe_gaming: "#FB7185",
+    gaming_hint: "#F472B6",
+};
+
+const FALLBACK_PALETTE = [
+    "#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#14b8a6", "#a855f7",
+    "#f97316", "#10b981", "#eab308", "#8b5cf6", "#06b6d4", "#ef476f",
+    "#118ab2", "#ffd166", "#06d6a0", "#8338ec", "#3a86ff", "#ff006e"
+];
+
 function dynamicColor(mode) {
-    const map = {
-        coding: "#4FA3FF",
-        browsing: "#B67BFF",
-        gaming: "#FF6161",
-        chatting: "#5CFF92",
-        video: "#FFCA66",
-        system: "#AAB2C8",
-        idle: "#76839B",
-    };
-    return map[mode?.toLowerCase?.()] || "#94a3b8";
+    const key = mode?.toLowerCase?.();
+    if (key && DYNAMIC_COLOR_MAP[key]) return DYNAMIC_COLOR_MAP[key];
+    if (!key) return "#94a3b8";
+
+    const hash = [...key].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
 
 function themeStyle(mode, ctx) {
@@ -178,11 +216,11 @@ async function updateLogs() {
     [...data].reverse().forEach(d => {
         tbody.innerHTML += `
         <tr class="border-b border-slate-700/30">
-            <td>${d.ts}</td>
-            <td>${d.exe}</td>
-            <td class="font-semibold">${d.mode}</td>
-            <td>${(d.confidence * 100).toFixed(1)}%</td>
-            <td>${d.title}</td>
+            <td class="py-2 pr-4 align-top text-slate-300">${d.ts}</td>
+            <td class="py-2 pr-4 align-top text-slate-200">${d.exe}</td>
+            <td class="py-2 pr-4 align-top font-semibold">${d.mode}</td>
+            <td class="py-2 pr-6 align-top text-slate-200">${(d.confidence * 100).toFixed(1)}%</td>
+            <td class="py-2 pl-2 align-top text-slate-100">${d.title}</td>
         </tr>`;
     });
 
