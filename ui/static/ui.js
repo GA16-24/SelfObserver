@@ -41,7 +41,7 @@ function themeStyle(mode, ctx) {
                 backgroundColor: glowGradient(ctx, color),
                 borderColor: color,
                 borderDash: [5, 5],
-                pointRadius: 0,
+                pointRadius: 4,
             };
 
         case "apple":
@@ -51,7 +51,7 @@ function themeStyle(mode, ctx) {
                 fill: true,
                 backgroundColor: appleGradient(ctx, color),
                 borderColor: color,
-                pointRadius: 2,
+                pointRadius: 4,
             };
 
         case "dsm":
@@ -61,7 +61,7 @@ function themeStyle(mode, ctx) {
                 fill: false,
                 backgroundColor: "transparent",
                 borderColor: color + "cc",
-                pointRadius: 0,
+                pointRadius: 3,
             };
 
         case "cyber":
@@ -71,7 +71,7 @@ function themeStyle(mode, ctx) {
                 fill: true,
                 backgroundColor: neonGlow(ctx, color),
                 borderColor: color,
-                pointRadius: 2,
+                pointRadius: 4,
             };
 
         default:
@@ -268,14 +268,17 @@ async function updateLine() {
 
     const ctx = document.getElementById("lineChart").getContext("2d");
 
+    const colors = labels.map(l => dynamicColor(l.toLowerCase()) || "#94a3b8");
+
     lineChart.data.labels = labels;
-    lineChart.data.datasets = labels.map((label, index) => {
-        const ds = {
-            label,
-            data: labels.map(l => (l === label ? values[index] : null))
-        };
-        return Object.assign(ds, themeStyle(label, ctx));
-    });
+    lineChart.data.datasets = [Object.assign({
+        label: "Usage (hrs)",
+        data: values,
+        pointBackgroundColor: colors,
+        pointBorderColor: colors,
+        pointRadius: 5,
+        spanGaps: true,
+    }, themeStyle("usage", ctx))];
 
     lineChart.update();
 }
