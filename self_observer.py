@@ -40,7 +40,6 @@ ALLOWED_MODES = [
 # ===============================================
 
 LOG_DIR = "logs"
-LOG_FILE = os.path.join(LOG_DIR, "screen_log.jsonl")
 CATEGORIES_FILE = "categories.json"
 
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
@@ -48,6 +47,11 @@ MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
 
 os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def log_path_for_date(day):
+    """Return the JSONL log path for a given date object."""
+    return os.path.join(LOG_DIR, f"screen_log_{day.isoformat()}.jsonl")
 
 
 # ===============================================
@@ -434,8 +438,8 @@ def stable_classification(cat_map):
 # Logging
 # ===============================================
 
-def write_log(entry):
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
+def write_log(entry, log_path):
+    with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
@@ -477,17 +481,24 @@ def main():
     print("[SelfObserver v10] Vision + OCR + Text Fusion")
 
     cat_map = load_categories()
+    current_day = datetime.now().date()
+    log_path = log_path_for_date(current_day)
 
     while True:
         snap = stable_classification(cat_map)
 
+        now = datetime.now()
+        if now.date() != current_day:
+            current_day = now.date()
+            log_path = log_path_for_date(current_day)
+
         entry = {
-            "ts": datetime.now().isoformat(timespec="seconds"),
+            "ts": now.isoformat(timespec="seconds"),
             **snap
         }
 
         pretty_print(entry)
-        write_log(entry)
+        write_log(entry, log_path)
 
         time.sleep(2)
 

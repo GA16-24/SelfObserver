@@ -8,12 +8,8 @@ import datetime
 # ---------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))        # ui/
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # SelfObserver/
-LOG_PATH = os.path.join(PROJECT_ROOT, "logs", "screen_log.jsonl")
-
-print("DEBUG: BASE_DIR =", BASE_DIR)
-print("DEBUG: PROJECT_ROOT =", PROJECT_ROOT)
-print("DEBUG: LOG_PATH =", LOG_PATH)
-print("DEBUG: LOG_EXISTS =", os.path.exists(LOG_PATH))
+LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+LEGACY_LOG = os.path.join(LOG_DIR, "screen_log.jsonl")
 
 # ---------------------------------------------
 # Flask App
@@ -25,13 +21,39 @@ app = Flask(
 )
 
 # ---------------------------------------------
-# Read logs (now LOG_PATH is already defined)
+# Latest log lookup + reader
 # ---------------------------------------------
+def latest_log_path():
+    if not os.path.exists(LOG_DIR):
+        return LEGACY_LOG if os.path.exists(LEGACY_LOG) else None
+
+    newest = None
+    newest_date = None
+
+    for name in os.listdir(LOG_DIR):
+        if not (name.startswith("screen_log_") and name.endswith(".jsonl")):
+            continue
+        date_part = name[len("screen_log_"):-len(".jsonl")]
+        try:
+            parsed = datetime.date.fromisoformat(date_part)
+        except Exception:
+            continue
+        if not newest_date or parsed > newest_date:
+            newest_date = parsed
+            newest = os.path.join(LOG_DIR, name)
+
+    if newest:
+        return newest
+
+    return LEGACY_LOG if os.path.exists(LEGACY_LOG) else None
+
+
 def read_logs():
-    if not os.path.exists(LOG_PATH):
+    log_path = latest_log_path()
+    if not log_path or not os.path.exists(log_path):
         return []
     out = []
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
+    with open(log_path, "r", encoding="utf-8") as f:
         for line in f:
             try:
                 out.append(json.loads(line))
