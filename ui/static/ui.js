@@ -19,6 +19,21 @@ function formatMinutesFriendly(minutes) {
     return `${m.toFixed(1)}m`;
 }
 
+function formatMinutesFriendly(minutes) {
+    const m = minutes || 0;
+    if (m >= 60) {
+        const hours = m / 60;
+        if (Math.abs(hours - Math.round(hours)) < 0.05) {
+            return `${Math.round(hours)}h`;
+        }
+        return `${hours.toFixed(1)}h`;
+    }
+    if (m >= 10) {
+        return `${Math.round(m)}m`;
+    }
+    return `${m.toFixed(1)}m`;
+}
+
 /* ============================================================
    THEME SYSTEM
 ============================================================ */
