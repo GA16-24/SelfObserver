@@ -260,10 +260,7 @@ async function updateLine() {
             data: { labels: [], datasets: [] },
             options: {
                 animation: false,
-                scales: {
-                    x: { ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } },
-                    y: { beginAtZero: true, ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } }
-                },
+                scales: { y: { beginAtZero: true } },
                 plugins: { legend: { labels: { color: "#fff" } } }
             }
         });
