@@ -1,0 +1,38 @@
+{
+  "model": "qwen2.5:7b",
+  "sample_interval_sec": 30,
+  "ocr_lang": "eng+chi_sim",
+
+  "categories": {
+    "video": {
+      "keywords": ["youtube","bilibili","播放","推荐","视频"],
+      "domains": ["youtube.com","bilibili.com"],
+      "remind_after_min": 40
+    },
+    "work": {
+      "keywords": ["obsidian","vscode","pdf","题","作业","python","md"],
+      "domains": ["wikipedia.org","github.com"],
+      "remind_after_min": null
+    },
+    "social": {
+      "keywords": ["discord","twitter","x.com","reddit"],
+      "domains": ["discord.com","x.com"],
+      "remind_after_min": 25
+    },
+    "music": {
+      "keywords": ["spotify","apple music","网易云"],
+      "domains": ["music.apple.com"],
+      "remind_after_min": 90
+    },
+    "idle": {
+      "keywords": [],
+      "domains": [],
+      "remind_after_min": 30
+    }
+  },
+
+  "report": {
+    "enable": true,
+    "output_dir": "D:/40-Personal/003-ObsidianVault/My awesome vault/🧠Weekly Reports"
+  }
+}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SelfObserver Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { background-color: #0f172a; }
+        .glass {
+            background: rgba(30,41,59,0.55);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+
+<body class="bg-cover bg-no-repeat text-white"
+      style="
+          background-image: url('/static/background.jpg');
+          background-position: top center;         /* 壁纸对齐上半部分 */
+          background-size: cover;                  /* 覆盖整个屏幕 */
+          background-attachment: fixed;            /* 让壁纸不跟随滚动 */
+      ">
+
+
+    <!-- Dark overlay -->
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-[5px] pointer-events-none"></div>
+
+
+    <!-- ALL CONTENT -->
+    <div class="relative z-10 max-w-6xl mx-auto px-6 space-y-8"
+     style="padding-top: 12vh;">   <!-- ★ 关键：往上提高位置 -->
+
+        <!-- ★ THEME SWITCHER (✔ FIXED POSITION INSIDE BODY) -->
+        <div class="glass p-4 rounded-xl shadow-xl flex gap-4 w-fit mb-4">
+            <button onclick="setTheme('glow')" 
+                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
+                Glow
+            </button>
+
+            <button onclick="setTheme('apple')" 
+                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
+                Apple
+            </button>
+
+            <button onclick="setTheme('dsm')" 
+                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
+                DSM
+            </button>
+
+            <button onclick="setTheme('cyber')" 
+                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
+                Cyberpunk
+            </button>
+        </div>
+        <!-- END SWITCHER -->
+
+
+        <!-- Header -->
+        <div class="glass rounded-2xl p-6 shadow-xl">
+            <h1 class="text-3xl font-bold">SelfObserver Dashboard</h1>
+            <p class="text-slate-400">Real-time activity & usage analytics</p>
+        </div>
+
+        <!-- Status Cards -->
+        <div class="grid grid-cols-3 gap-6" id="stats"></div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-2 gap-6">
+
+            <!-- Pie Chart -->
+            <div class="glass rounded-2xl p-6 shadow-xl">
+                <h2 class="text-xl font-semibold mb-4">Today Usage Distribution</h2>
+                <canvas id="pieChart"></canvas>
+            </div>
+
+            <!-- Line Chart -->
+            <div class="glass rounded-2xl p-6 shadow-xl">
+                <h2 class="text-xl font-semibold mb-4">Last 1 Hour Timeline</h2>
+                <canvas id="lineChart"></canvas>
+            </div>
+
+        </div>
+
+        <!-- Log Table -->
+        <div class="glass rounded-2xl p-6 shadow-xl">
+            <h2 class="text-xl font-semibold mb-4">Latest Activity</h2>
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-slate-400">
+                        <th>Time</th><th>Exe</th><th>Mode</th><th>Conf</th><th>Title</th>
+                    </tr>
+                </thead>
+                <tbody id="log-body" class="text-sm"></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script src="/static/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "SelfObserver Bridge",
+  "version": "1.0",
+  "permissions": ["tabs"],
+  "background": { "service_worker": "service_worker.js" },
+  "host_permissions": ["<all_urls>"]
+}
