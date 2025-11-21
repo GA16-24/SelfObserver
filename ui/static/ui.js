@@ -260,10 +260,7 @@ async function updateLine() {
             data: { labels: [], datasets: [] },
             options: {
                 animation: false,
-                scales: {
-                    x: { ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } },
-                    y: { beginAtZero: true, ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } }
-                },
+                scales: { y: { beginAtZero: true } },
                 plugins: { legend: { labels: { color: "#fff" } } }
             }
         });
@@ -271,17 +268,14 @@ async function updateLine() {
 
     const ctx = document.getElementById("lineChart").getContext("2d");
 
-    const colors = labels.map(l => dynamicColor(l.toLowerCase()) || "#94a3b8");
-
     lineChart.data.labels = labels;
-    lineChart.data.datasets = [Object.assign({
-        label: "Usage (hrs)",
-        data: values,
-        pointBackgroundColor: colors,
-        pointBorderColor: colors,
-        pointRadius: 5,
-        spanGaps: true,
-    }, themeStyle("usage", ctx))];
+    lineChart.data.datasets = labels.map((label, index) => {
+        const ds = {
+            label,
+            data: labels.map(l => (l === label ? values[index] : null))
+        };
+        return Object.assign(ds, themeStyle(label, ctx));
+    });
 
     lineChart.update();
 }
