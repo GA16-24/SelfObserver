@@ -294,6 +294,49 @@ def build_forecast_section(entries, analysis: Dict[str, Any] | None = None):
     return "\n".join(lines)
 
 
+def build_behavior_section(entries):
+    if not entries:
+        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
+
+    analysis = behavior_model.analyze_behaviors(entries)
+    labels = analysis.get("labels", [])
+    if not labels:
+        return "Keine Cluster konnten berechnet werden."
+
+    clusters = analysis.get("clusters", {})
+    transitions = analysis.get("transitions", {})
+    flow = analysis.get("flow_state_likelihood", 0.0)
+    anomalies = analysis.get("anomaly_indices", [])
+    algo = analysis.get("algorithm", "unbekannt")
+
+    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
+
+    if clusters:
+        lines.append("Top-Cluster:")
+        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
+            lines.append(
+                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
+                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
+            )
+            if info["top_modes"]:
+                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
+                lines.append(f"  • Häufigste Modi: {mode_str}")
+            if info["top_apps"]:
+                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
+                lines.append(f"  • Häufigste Apps: {app_str}")
+
+    if transitions:
+        lines.append("Modus-/Cluster-Wechsel:")
+        for (a, b), count in transitions.most_common(6):
+            lines.append(f"- {a} → {b}: {count}×")
+
+    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
+    if anomalies:
+        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
+
+    return "\n".join(lines)
+
+
 def run_llm_analysis(prompt):
     try:
         result = subprocess.run(
