@@ -14,6 +14,8 @@ import requests
 from PIL import ImageGrab
 
 import daily_report
+import behavior_model
+import behavior_digital_twin
 
 
 # ===============================================
@@ -61,6 +63,10 @@ ALLOWED_MODES = [
 LOG_DIR = "logs"
 CATEGORIES_FILE = "categories.json"
 HEURISTICS_FILE = "heuristics.json"
+
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
@@ -225,7 +231,12 @@ def parse_model_json(raw, fallback_mode="unknown"):
 
 def capture_screen_base64():
     """Capture full screen, encode to base64."""
-    img = ImageGrab.grab()
+    try:
+        img = ImageGrab.grab()
+    except Exception as e:
+        print("[SCREENSHOT ERROR]", e)
+        return None
+
     path = "screen_shot_tmp.jpg"
     img.save(path, "JPEG", quality=70)
 
@@ -272,6 +283,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 # ===============================================
@@ -353,6 +378,9 @@ def ollama_vision(prompt, base64_img):
     Ollama Vision API — 官方要求 payload 是纯 JSON
     使用 stdin 输入 JSON，而不是 CLI 参数。
     """
+    if not base64_img:
+        return {"mode": "unknown", "confidence": 0.0}
+
     payload = {
         "prompt": f"""
 You are a strict classifier. Only respond with JSON in the form {{"mode": "<mode>", "confidence": <0-1>}}.
@@ -539,6 +567,9 @@ def stable_classification(cat_map, heuristics_rules):
             time.sleep(0.3)
             continue
 
+        if is_ignored_window(fw):
+            return None
+
         url = ""
         if fw["exe"].lower() == "chrome.exe":
             url = try_get_chrome_url()
@@ -557,7 +588,7 @@ def stable_classification(cat_map, heuristics_rules):
         time.sleep(0.2)
 
     if not snapshot:
-        return {"mode":"unknown","confidence":0.0}
+        return None
 
     # vote
     final_mode = max(set(modes), key=modes.count)
@@ -576,6 +607,8 @@ def stable_classification(cat_map, heuristics_rules):
 
     snapshot["mode"] = final_mode
     snapshot["confidence"] = conf
+    embedding, _ = behavior_model.build_embedding(snapshot)
+    snapshot["embedding"] = embedding
     return snapshot
 
 
@@ -586,13 +619,23 @@ def stable_classification(cat_map, heuristics_rules):
 def write_log(entry, log_path):
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    try:
+        behavior_digital_twin.update_state_with_entry(entry)
+    except Exception:
+        pass
 
 
 def pretty_print(e):
-    t = e["title"]
-    if len(t) > 50:
-        t = t[:47] + "..."
-    print(f"[{e['ts']}] {e['exe']:<12} | {e['mode']:<10} | {e['confidence']:.2f} | {t}")
+    title = e.get("title") or "<no title>"
+    if len(title) > 50:
+        title = title[:47] + "..."
+
+    exe = e.get("exe", "<unknown exe>")
+    mode = e.get("mode", "unknown")
+    confidence = float(e.get("confidence", 0.0) or 0.0)
+    ts = e.get("ts", "")
+
+    print(f"[{ts}] {exe:<12} | {mode:<10} | {confidence:.2f} | {title}")
 
 
 # ===============================================
@@ -639,6 +682,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         now = datetime.now()
         if now.date() != current_day:
