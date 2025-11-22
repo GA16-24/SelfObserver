@@ -62,6 +62,10 @@ LOG_DIR = "logs"
 CATEGORIES_FILE = "categories.json"
 HEURISTICS_FILE = "heuristics.json"
 
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
@@ -225,7 +229,12 @@ def parse_model_json(raw, fallback_mode="unknown"):
 
 def capture_screen_base64():
     """Capture full screen, encode to base64."""
-    img = ImageGrab.grab()
+    try:
+        img = ImageGrab.grab()
+    except Exception as e:
+        print("[SCREENSHOT ERROR]", e)
+        return None
+
     path = "screen_shot_tmp.jpg"
     img.save(path, "JPEG", quality=70)
 
@@ -272,6 +281,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 # ===============================================
@@ -353,6 +376,9 @@ def ollama_vision(prompt, base64_img):
     Ollama Vision API — 官方要求 payload 是纯 JSON
     使用 stdin 输入 JSON，而不是 CLI 参数。
     """
+    if not base64_img:
+        return {"mode": "unknown", "confidence": 0.0}
+
     payload = {
         "prompt": f"""
 You are a strict classifier. Only respond with JSON in the form {{"mode": "<mode>", "confidence": <0-1>}}.
@@ -539,6 +565,9 @@ def stable_classification(cat_map, heuristics_rules):
             time.sleep(0.3)
             continue
 
+        if is_ignored_window(fw):
+            return None
+
         url = ""
         if fw["exe"].lower() == "chrome.exe":
             url = try_get_chrome_url()
@@ -639,6 +668,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         now = datetime.now()
         if now.date() != current_day:
