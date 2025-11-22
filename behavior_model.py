@@ -185,10 +185,7 @@ def cluster_embeddings(embeddings: List[List[float]]):
         pass
 
     try:
-        import importlib
-
-        sklearn_cluster = importlib.import_module("sklearn.cluster")
-        DBSCAN = getattr(sklearn_cluster, "DBSCAN")
+        from sklearn.cluster import DBSCAN
 
         eps = 0.6 if len(embeddings) > 10 else 0.8
         labels = DBSCAN(eps=eps, min_samples=2).fit_predict(embeddings)
@@ -197,10 +194,7 @@ def cluster_embeddings(embeddings: List[List[float]]):
         pass
 
     try:
-        import importlib
-
-        sklearn_cluster = importlib.import_module("sklearn.cluster")
-        KMeans = getattr(sklearn_cluster, "KMeans")
+        from sklearn.cluster import KMeans
 
         k = min(6, max(2, int(len(embeddings) ** 0.5)))
         labels = KMeans(n_clusters=k, n_init=5, random_state=42).fit_predict(embeddings)

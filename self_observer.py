@@ -65,6 +65,10 @@ IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 IGNORED_PROCESSES = {"lockapp.exe"}
 IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
@@ -256,6 +260,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 def is_ignored_window(window_info):
@@ -673,7 +691,7 @@ def pretty_print(e):
 
 def schedule_daily_report():
     TARGET_HOUR = 22
-    TARGET_MIN = 0
+    TARGET_MIN = 50
     last_date = None
 
     def _maybe_generate_report(tag):
@@ -696,7 +714,7 @@ def schedule_daily_report():
             time.sleep(60)
             continue
 
-        # Regular schedule: top-of-hour check (22:00 only, one per day)
+        # Regular schedule: check at the configured minute (22:50 only, one per day)
         if (
             now.hour == TARGET_HOUR
             and now.minute == TARGET_MIN
@@ -729,6 +747,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         # Skip logging entirely when the foreground window is configured to be ignored
         if snap is None:
