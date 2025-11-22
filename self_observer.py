@@ -49,6 +49,22 @@ HEURISTICS_FILE = "heuristics.json"
 IGNORED_PROCESSES = {"lockapp.exe"}
 IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
@@ -74,11 +90,8 @@ DEFAULT_HEURISTICS = [
     {"mode": "ai_chat", "confidence": 0.8, "exe_exact": ["chrome.exe"], "url_contains": ["openai", "chatgpt", "poe.com", "claude.ai"]},
     {"mode": "chatting", "confidence": 0.7, "exe_contains": ["wechat", "weixin", "qq", "discord", "slack", "teams"]},
 
-    {"mode": "coding", "confidence": 0.7, "exe_contains": ["code.exe", "pycharm", "idea64", "devenv"]},
-    {"mode": "writing", "confidence": 0.7, "exe_contains": ["obsidian"]},
-    {"mode": "writing", "confidence": 0.6, "exe_contains": ["word", "notepad", "onenote", "typora", "notion"]},
-    {"mode": "reading", "confidence": 0.6, "exe_contains": ["excel", "powerpnt", "wps"]},
-    {"mode": "file_management", "confidence": 0.6, "exe_contains": ["explorer.exe", "finder", "totalcmd"]},
+    {"mode": "ai_chat", "confidence": 0.85, "url_contains": ["kimi.moonshot", "kimi.ai", "kimi.chat"]},
+    {"mode": "ai_chat", "confidence": 0.75, "title_contains": ["kimi"], "url_contains": ["kimi"]},
 
     {"mode": "gaming", "confidence": 0.6, "label_contains": ["game", "play", "hp", "health", "inventory"]},
 ]
@@ -243,6 +256,62 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 def is_ignored_window(window_info):
@@ -660,6 +729,26 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         # Skip logging entirely when the foreground window is configured to be ignored
         if snap is None:
