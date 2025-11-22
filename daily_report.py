@@ -2,16 +2,16 @@ import json
 import os
 import subprocess
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any, Dict, List
 
-import behavior_model
 import behavior_digital_twin
+import behavior_model
 import time_series_forecasting
 from self_observer import ALLOWED_MODES, is_ignored_window
 
 # === Obsidian Pfad ===
-VAULT_PATH = r"D:\40-Personal\003-ObsidianVault\My awesome vault"
+VAULT_PATH = r"D:\\40-Personal\\003-ObsidianVault\\My awesome vault"
 REPORT_DIR = os.path.join(VAULT_PATH, "SelfObserverDaily")
 
 # === Log-Dateien von SelfObserver ===
@@ -24,47 +24,16 @@ REPORT_MODEL = os.environ.get("REPORT_MODEL", "qwen2.5:7b")
 os.makedirs(REPORT_DIR, exist_ok=True)
 
 
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
-
-
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
-
-
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
-
-
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
-
-ANALYSIS_PROMPT = (
-    "Du bist eine analytische Beobachtungs-KI. Deine Aufgabe ist es, das digitale "
-    "Nutzungsverhalten eines 15-jährigen Schülers anhand der gegebenen Rohdaten objektiv zu analysieren. "
-    "Die Daten können App-Nutzung, Tabs, Titel, Programme, Spiele, Chat-Inhalte, Zeitangaben, Tageszeiten "
-    "oder Nutzungsdauern enthalten. Du ordnest jede Aktivität sinnvoll in Kategorien wie Lernen, Recherche, "
-    "kreatives Arbeiten, Kommunikation, Gaming, Entertainment, Sport, Musik, Social Media oder Leerlauf ein "
-    "und leitest daraus klare Muster ab. Identifiziere die Interessen, Hobbys und häufig wiederkehrenden "
-    "Themen des Nutzers, erkenne seinen Tagesrhythmus, produktive Phasen, Konzentrationsabfälle und mögliche "
-    "Übernutzung. Erstelle ein Stärkenprofil des Nutzers, zeige potenzielle Risiken wie Überlastung, zu hohe "
-    "Social-Media- oder Gaming-Zeiten, fehlende Pausen oder Schlafverschiebungen auf und bleibe dabei "
-    "vollständig evidenzbasiert. Schließe deine Analyse mit konkreten, realistischen und umsetzbaren "
-    "Vorschlägen ab, die das Nutzungsverhalten verbessern können, zum Beispiel zur Zeitverteilung, zum Lernen, "
-    "zu Pausen, zum Schlafrhythmus oder zur Fokussierung. Die Ausgabe folgt immer dieser Struktur: kurze "
-    "Zusammenfassung, Nutzungsprofil, Interessen, Verhaltenstrends, Stärken, Risiken und Empfehlungen."
-)
-
-
 # ------------------------------------------------------
-# 1. Logs laden
+# Pfade und Logging
 # ------------------------------------------------------
+def report_path_for_date(day: date) -> str:
+    """Return the on-disk path for a report corresponding to a given date."""
+    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
+
+
 def latest_log_path():
-    """Finde die aktuellste Tages-Logdatei (Fallback: legacy screen_log.jsonl)."""
+    """Find the newest daily log file (fallback: legacy screen_log.jsonl)."""
     if not os.path.exists(LOG_DIR):
         return LEGACY_LOG if os.path.exists(LEGACY_LOG) else None
 
@@ -90,7 +59,7 @@ def latest_log_path():
 
 
 def load_all_logs(log_path=None):
-    """Lädt alle Log-Einträge aus der neuesten Log-Datei."""
+    """Load every log entry from the chosen log file."""
     entries = []
     log_file = log_path or latest_log_path()
     if not log_file or not os.path.exists(log_file):
@@ -111,27 +80,28 @@ def load_all_logs(log_path=None):
                 window_info = {"exe": obj.get("exe", ""), "title": obj.get("title", "")}
                 if is_ignored_window(window_info):
                     continue
-                entries.append({
-                    "ts": ts,
-                    "mode": mode,
-                    "exe": window_info["exe"],
-                    "title": window_info["title"],
-                    "url": obj.get("url", ""),
-                    "uia_labels": obj.get("uia_labels", []),
-                    "confidence": obj.get("confidence", 0.0),
-                    "embedding": obj.get("embedding"),
-                })
+                entries.append(
+                    {
+                        "ts": ts,
+                        "mode": mode,
+                        "exe": window_info["exe"],
+                        "title": window_info["title"],
+                        "url": obj.get("url", ""),
+                        "uia_labels": obj.get("uia_labels", []),
+                        "confidence": obj.get("confidence", 0.0),
+                        "embedding": obj.get("embedding"),
+                    }
+                )
             except Exception:
                 # Fehlerhafte Zeilen werden einfach übersprungen
                 continue
 
-    # nach Zeit sortieren
     entries.sort(key=lambda x: x["ts"])
     return entries
 
 
 def filter_today(entries):
-    """Filtert nur Einträge des heutigen Tages."""
+    """Filter only entries of today's date."""
     today = datetime.now().date()
     today_entries = [e for e in entries if e["ts"].date() == today]
     today_entries.sort(key=lambda x: x["ts"])
@@ -139,14 +109,11 @@ def filter_today(entries):
 
 
 # ------------------------------------------------------
-# 2. Dauer pro Modus + Segmente
+# 1. Dauer pro Modus + Segmente
 # ------------------------------------------------------
 def compute_durations_and_segments(entries):
     """
-    Berechnet:
-      - Dauer pro Modus (in Minuten)
-      - längste zusammenhängende Phase pro Modus (in Minuten)
-      - Anzahl der Moduswechsel
+    Compute per-mode durations, longest uninterrupted segment per mode, and number of mode switches.
     """
     durations = defaultdict(float)
     longest_segment = defaultdict(float)
@@ -155,17 +122,15 @@ def compute_durations_and_segments(entries):
     if len(entries) < 2:
         return durations, longest_segment, switches
 
-    # Dauer pro Modus
     for i in range(len(entries) - 1):
         cur = entries[i]
         nxt = entries[i + 1]
-        dt = (nxt["ts"] - cur["ts"]).total_seconds() / 60.0  # Minuten
+        dt = (nxt["ts"] - cur["ts"]).total_seconds() / 60.0
         if dt < 0:
             continue
         mode = cur["mode"]
         durations[mode] += dt
 
-    # Segmente + Wechsel
     current_mode = entries[0]["mode"]
     seg_start = entries[0]["ts"]
 
@@ -179,7 +144,6 @@ def compute_durations_and_segments(entries):
             current_mode = e["mode"]
             seg_start = e["ts"]
 
-    # letztes Segment
     last_ts = entries[-1]["ts"]
     dt = (last_ts - seg_start).total_seconds() / 60.0
     if dt > 0 and dt > longest_segment[current_mode]:
@@ -189,7 +153,7 @@ def compute_durations_and_segments(entries):
 
 
 # ------------------------------------------------------
-# 3. KI-Kontext aufbereiten
+# 2. KI-Kontext aufbereiten
 # ------------------------------------------------------
 def summarize_timeline(entries, limit=30):
     lines = []
@@ -230,9 +194,58 @@ def build_llm_context(durations, longest_segment, switches, entries):
     return "\n".join(context)
 
 
+# ------------------------------------------------------
+# 3. Einfache Zusammenfassung ohne Fachjargon
+# ------------------------------------------------------
+def build_plain_language_summary(durations, longest_segment, switches):
+    total_min = sum(durations.values())
+    if total_min <= 0:
+        return "Heute liegen keine verwertbaren Nutzungsdaten vor."
+
+    lines: List[str] = []
+    sorted_modes = sorted(durations.items(), key=lambda kv: kv[1], reverse=True)
+    top_modes = sorted_modes[:3]
+
+    if top_modes:
+        parts = []
+        for mode, mins in top_modes:
+            share = mins / total_min * 100
+            block = longest_segment.get(mode, 0.0)
+            block_text = f" (längster Block ~{block:.0f} Min)" if block > 0 else ""
+            parts.append(f"{mode}: {mins:.0f} Min ({share:.0f} %){block_text}")
+        lines.append("Hauptaktivitäten: " + "; ".join(parts) + ".")
+
+    if switches >= 25:
+        lines.append(
+            "Viele Wechsel zwischen Apps/Modi – das deutet auf einen eher fragmentierten Tag hin. Versuche längere Blöcke einzuplanen."
+        )
+    elif switches >= 10:
+        lines.append("Mäßige Anzahl an App-Wechseln – du hast zwischen Aufgaben gewechselt, aber nicht ständig.")
+    else:
+        lines.append("Wenig App-Wechsel – der Tag war relativ fokussiert.")
+
+    idle_min = durations.get("idle", 0.0)
+    if idle_min >= 60:
+        lines.append("Es gab über eine Stunde Leerlauf ohne klaren Modus. Vielleicht kannst du dort kleine Aufgaben oder Pausen einplanen.")
+
+    video_min = durations.get("video", 0.0)
+    if video_min >= 120:
+        lines.append("Viel Video-Zeit – falls das nicht geplant war, helfen feste Zeitfenster (z. B. nach erledigten Aufgaben).")
+
+    work_min = durations.get("work", 0.0)
+    if work_min > 0:
+        block = longest_segment.get("work", 0.0)
+        lines.append(f"Produktive Zeit: {work_min:.0f} Minuten, längster Arbeitsblock ca. {block:.0f} Minuten.")
+
+    return "\n".join(lines)
+
+
+# ------------------------------------------------------
+# 4. Modellbasierte Abschnitte
+# ------------------------------------------------------
 def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
     if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
+        return "Keine Aktivitäten für eine Verhaltensanalyse vorhanden."
 
     analysis = analysis or behavior_model.analyze_behaviors(entries)
     labels = analysis.get("labels", [])
@@ -245,14 +258,13 @@ def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
     anomalies = analysis.get("anomaly_indices", [])
     algo = analysis.get("algorithm", "unbekannt")
 
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
+    lines: List[str] = []
+    lines.append(f"Automatisch erkannte Verhaltenscluster (Algorithmus: {algo}):")
 
     if clusters:
-        lines.append("Top-Cluster:")
         for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
             lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
+                f"- Cluster {lbl}: {info['label']} (n={info['size']}, kognitive Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
             )
             if info["top_modes"]:
                 mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
@@ -262,13 +274,13 @@ def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
                 lines.append(f"  • Häufigste Apps: {app_str}")
 
     if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
+        lines.append("Häufigste Wechsel zwischen Clustern/Modi:")
         for (a, b), count in transitions.most_common(6):
             lines.append(f"- {a} → {b}: {count}×")
 
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
+    lines.append(f"Flow-Score (hoher Wert = konsistenter Tag): {flow:.2f}")
     if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
+        lines.append(f"Auffällige Ausreißer: {len(anomalies)}")
 
     return "\n".join(lines)
 
@@ -292,26 +304,26 @@ def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, fore
         return f"cluster_{lbl}"
 
     lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
+    lines.append(f"Modell: {forecast.get('algorithm', 'unbekannt')}")
 
     if forecast.get("predicted_cluster") is not None:
         cid = forecast["predicted_cluster"]
         prob = dist.get(cid, 0.0) * 100
         lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
+            f"Wahrscheinlichster Zustand in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
         )
 
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
+    lines.append("Verteilung der nächsten Stunde:")
     for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
         lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
 
     lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
+        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungsrisiko: {forecast.get('distraction', 0.0):.2f}"
     )
 
     insights = forecast.get("insights", [])
     if insights:
-        lines.append("Interpretierbare Hinweise:")
+        lines.append("Hinweise:")
         for insight in insights:
             lines.append(f"- {insight}")
 
@@ -344,10 +356,10 @@ def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, 
         return f"cluster_{lbl}"
 
     lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
+    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext):")
 
     if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
+        lines.append("Top-Übergangswahrscheinlichkeiten:")
         flat = []
         for src, dsts in matrix.items():
             for dst, prob in dsts.items():
@@ -358,21 +370,21 @@ def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, 
     if short_term.get("predicted_cluster") is not None:
         cid = short_term["predicted_cluster"]
         prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
+        lines.append(f"Kurzfrist-Prognose (≈30 Min): {_fmt_cluster(cid)} ({prob:.1f}%).")
 
     if best:
         peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
+        lines.append(f"Günstige Fokusslots: {peak_str}.")
     if worst:
         low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
+        lines.append(f"Abfallende Phasen: {low_str}.")
 
     if triggers[0]:
         trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
+        lines.append("Typische Ablenker (Apps): " + ", ".join(trigger_lines))
     if triggers[1]:
         context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
+        lines.append("Typische Ablenker (Kontext): " + ", ".join(context_lines))
 
     if stress:
         lines.append(
@@ -385,1276 +397,24 @@ def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, 
         )
 
     if insights:
-        lines.append("Zusätzliche Twin-Insights:")
+        lines.append("Weitere Twin-Insights:")
         for ins in insights[:5]:
             lines.append(f"- {ins}")
 
     return "\n".join(lines)
 
 
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
-
-    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
-    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
-
-    if not twin.get("features"):
-        return "Digital Twin konnte nicht konstruiert werden."
-
-    matrix = twin.get("transition_matrix", {})
-    triggers = twin.get("procrastination_triggers", ([], []))
-    best, worst = twin.get("productivity_windows", ([], []))
-    stress = twin.get("stress", {})
-    alignment = twin.get("goal_alignment", {})
-    short_term = twin.get("short_term", {})
-    insights = twin.get("insights", [])
-
-    def _fmt_cluster(lbl):
-        clusters = twin.get("clusters", {})
-        info = clusters.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
-
-    if matrix:
-        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
-        flat = []
-        for src, dsts in matrix.items():
-            for dst, prob in dsts.items():
-                flat.append((prob, src, dst))
-        for prob, src, dst in sorted(flat, reverse=True)[:5]:
-            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
-
-    if short_term.get("predicted_cluster") is not None:
-        cid = short_term["predicted_cluster"]
-        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
-        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
-
-    if best:
-        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
-        lines.append(f"Produktivitätsfenster: {peak_str}.")
-    if worst:
-        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
-        lines.append(f"Produktivität fällt oft ab: {low_str}.")
-
-    if triggers[0]:
-        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
-        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
-    if triggers[1]:
-        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
-        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
-
-    if stress:
-        lines.append(
-            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
-        )
-
-    if alignment:
-        lines.append(
-            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
-        )
-
-    if insights:
-        lines.append("Zusätzliche Twin-Insights:")
-        for ins in insights[:5]:
-            lines.append(f"- {ins}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = analysis or behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
-
-
-def build_forecast_section(entries, analysis: Dict[str, Any] | None = None):
-    if not entries:
-        return "Keine Daten für eine Vorhersage vorhanden."
-
-    forecast = time_series_forecasting.forecast_next_hour(entries, analysis)
-    dist = forecast.get("distribution", {})
-
-    if not dist:
-        return "Keine verwertbare Vorhersage generiert."
-
-    clusters_meta = forecast.get("clusters_meta", {})
-
-    def cluster_name(lbl):
-        info = clusters_meta.get(lbl)
-        if info:
-            return info.get("label", f"cluster_{lbl}")
-        return f"cluster_{lbl}"
-
-    lines: List[str] = []
-    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
-
-    if forecast.get("predicted_cluster") is not None:
-        cid = forecast["predicted_cluster"]
-        prob = dist.get(cid, 0.0) * 100
-        lines.append(
-            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
-        )
-
-    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
-    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
-        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
-
-    lines.append(
-        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
-    )
-
-    insights = forecast.get("insights", [])
-    if insights:
-        lines.append("Interpretierbare Hinweise:")
-        for insight in insights:
-            lines.append(f"- {insight}")
-
-    return "\n".join(lines)
-
-
-def build_behavior_section(entries):
-    if not entries:
-        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
-
-    analysis = behavior_model.analyze_behaviors(entries)
-    labels = analysis.get("labels", [])
-    if not labels:
-        return "Keine Cluster konnten berechnet werden."
-
-    clusters = analysis.get("clusters", {})
-    transitions = analysis.get("transitions", {})
-    flow = analysis.get("flow_state_likelihood", 0.0)
-    anomalies = analysis.get("anomaly_indices", [])
-    algo = analysis.get("algorithm", "unbekannt")
-
-    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
-
-    if clusters:
-        lines.append("Top-Cluster:")
-        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
-            lines.append(
-                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
-                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
-            )
-            if info["top_modes"]:
-                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
-                lines.append(f"  • Häufigste Modi: {mode_str}")
-            if info["top_apps"]:
-                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
-                lines.append(f"  • Häufigste Apps: {app_str}")
-
-    if transitions:
-        lines.append("Modus-/Cluster-Wechsel:")
-        for (a, b), count in transitions.most_common(6):
-            lines.append(f"- {a} → {b}: {count}×")
-
-    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
-    if anomalies:
-        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
-
-    return "\n".join(lines)
+# ------------------------------------------------------
+# 5. LLM-Analyse
+# ------------------------------------------------------
+ANALYSIS_PROMPT = (
+    "Du bist eine analytische Beobachtungs-KI. Beschreibe das digitale Nutzungsverhalten eines 15-jährigen Schülers klar und in Alltagssprache. "
+    "Ordne die Aktivitäten in verständliche Kategorien (z. B. Lernen, Recherche, kreatives Arbeiten, Kommunikation, Gaming, Entertainment, Social Media, Leerlauf) ein und leite daraus Muster ab. "
+    "Erkenne Tagesrhythmus, produktive Phasen, Konzentrationsabfälle und mögliche Übernutzung. "
+    "Erstelle ein Stärkenprofil, nenne potenzielle Risiken (z. B. zu viel Social Media/Gaming, fehlende Pausen, Schlafverschiebungen) und schließe mit konkreten, realistischen Verbesserungsvorschlägen. "
+    "Vermeide Fachjargon, schreibe kurze Sätze und erkläre Zahlen oder Begriffe, falls nötig. "
+    "Die Ausgabe folgt immer dieser Struktur: kurze Zusammenfassung, Nutzungsprofil, Interessen, Verhaltenstrends, Stärken, Risiken und Empfehlungen."
+)
 
 
 def run_llm_analysis(prompt):
@@ -1689,14 +449,11 @@ def generate_llm_section(durations, longest_segment, switches, entries):
 
 
 # ------------------------------------------------------
-# 4. Optimierungsaufgaben generieren (regelbasiert)
+# 6. Optimierungsaufgaben generieren (regelbasiert)
 # ------------------------------------------------------
 def build_optimization_section(durations, longest_segment, switches):
-    """
-    Erzeugt konkrete Optimierungsaufgaben auf Basis der Daten.
-    Keine LLM-Nutzung, nur einfache Regeln.
-    """
-    lines = []
+    """Create actionable optimization tasks based on the data."""
+    lines: List[str] = []
     total_min = sum(durations.values())
 
     if total_min <= 0:
@@ -1710,57 +467,44 @@ def build_optimization_section(durations, longest_segment, switches):
     social_min = durations.get("social", 0.0)
     idle_min = durations.get("idle", 0.0)
 
-    # 1) Video-Anteil
     if share.get("video", 0.0) > 0.4:
         max_block = longest_segment.get("video", 0.0)
         target_block = min(45, max(25, int(max_block * 0.8) if max_block > 0 else 35))
         lines.append(
-            f"- Video-Nutzung reduzieren: Heute ca. {video_min:.1f} Minuten, "
-            f"größter Block ≈ {max_block:.1f} Minuten. "
-            f"Ziel für morgen: Einzelne Video-Blöcke auf maximal {target_block} Minuten begrenzen."
+            f"- Video-Nutzung reduzieren: Heute ca. {video_min:.1f} Minuten, größter Block ≈ {max_block:.1f} Minuten. Ziel: Einzelne Blöcke auf max. {target_block} Minuten begrenzen."
         )
 
-    # 2) Work-Anteil
     if share.get("work", 0.0) < 0.3:
         lines.append(
-            "- Arbeits-/Lernzeit erhöhen: Der Anteil produktiver Zeit ist heute relativ gering. "
-            "Für morgen mindestens zwei klar definierte Arbeitsblöcke von je 30–45 Minuten einplanen."
+            "- Arbeits-/Lernzeit erhöhen: Der Anteil produktiver Zeit ist heute relativ gering. Für morgen zwei Arbeitsblöcke von je 30–45 Minuten einplanen."
         )
     else:
         max_work_block = longest_segment.get("work", 0.0)
         if max_work_block < 30:
             lines.append(
-                "- Fokussierte Arbeitsphasen stabilisieren: Die längste zusammenhängende Arbeitsphase war kurz. "
-                "Für morgen ein Arbeitsintervall von mindestens 45 Minuten ohne App-Wechsel anstreben."
+                "- Fokussierte Arbeitsphasen stabilisieren: Längster Arbeitsblock war kurz. Ziel: mindestens 45 Minuten ohne App-Wechsel."
             )
 
-    # 3) Social / Moduswechsel
     if social_min > 15 and switches > 15:
         lines.append(
-            "- Fragmentierung durch soziale Apps reduzieren: Heute gab es viele Moduswechsel "
-            "und relevante Social-Zeit. Für morgen feste Check-Zeiten (z. B. alle 60–90 Minuten) definieren "
-            "statt permanente Benachrichtigungsreaktion."
+            "- Fragmentierung durch soziale Apps reduzieren: Viele Moduswechsel und Social-Zeit. Feste Check-Zeiten (z. B. alle 60–90 Minuten) statt sofortiger Reaktion."
         )
 
-    # 4) Idle-Zeit
     if idle_min > 60:
         lines.append(
-            f"- Idle-Phasen nutzen: Es wurden etwa {idle_min:.1f} Minuten ohne klar zuordenbare Aktivität erfasst. "
-            "Für morgen mindestens eine dieser Phasen konkret mit einer Aufgabe belegen "
-            "(z. B. Kurzwiederholung eines Themas, Ordnung des Systems, Planungsblock)."
+            f"- Idle-Phasen nutzen: Etwa {idle_min:.1f} Minuten ohne klar zuordenbare Aktivität. Eine Phase morgen mit einer Mini-Aufgabe füllen (z. B. kurzes Wiederholen, Planung, Aufräumen)."
         )
 
     if not lines:
         lines.append(
-            "Die heutigen Daten zeigen kein extremes Ungleichgewicht. Für morgen kann das Muster "
-            "beibehalten werden, mit Fokus auf klar definierten Lernblöcken und bewusster Pausenplanung."
+            "Keine starken Ungleichgewichte sichtbar. Morgen Fokus auf klar definierte Lernblöcke und bewusste Pausenplanung beibehalten."
         )
 
     return "\n".join(lines)
 
 
 # ------------------------------------------------------
-# 5. Report-Text erzeugen
+# 7. Report-Text erzeugen
 # ------------------------------------------------------
 def format_report(date_str, durations, longest_segment, switches, entries_count, log_path, today_entries, analysis):
     total_min = sum(durations.values())
@@ -1775,19 +519,21 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
             share = mins / total_min * 100 if total_min > 0 else 0.0
             mode_rows.append((mode, mins, share))
 
-        # Falls zusätzliche Modi existieren, die nicht in ALLOWED_MODES stehen, trotzdem anzeigen
         extra_modes = sorted(set(durations.keys()) - set(ALLOWED_MODES))
         for mode in extra_modes:
             mins = durations.get(mode, 0.0)
             share = mins / total_min * 100 if total_min > 0 else 0.0
             mode_rows.append((mode, mins, share))
 
-    lines = []
+    lines: List[str] = []
     lines.append(f"# Tagesbericht – {date_str}\n")
     lines.append("Dieser Bericht wurde automatisch von SelfObserver erzeugt.")
     lines.append("Er basiert auf den aufgezeichneten Vordergrundaktivitäten des heutigen Tages.\n")
 
-    # 1. Zeitverteilung
+    lines.append("## Schnell erklärt (ohne Fachbegriffe)")
+    lines.append(build_plain_language_summary(durations, longest_segment, switches))
+    lines.append("")
+
     lines.append("## 1. Zeitverteilung nach Modus (in Minuten)")
     if total_min <= 0:
         lines.append("Es liegen für heute keine ausreichenden Daten vor.\n")
@@ -1798,11 +544,10 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
             lines.append(f"| {mode:<7}| {mins:7.1f} | {share:6.1f} % |")
         lines.append("")
 
-    # 2. Muster
-    lines.append("## 2. Verhaltensanalyse (technische Sicht)")
+    lines.append("## 2. Verhaltensanalyse (Kurzinfos)")
     lines.append(f"- Gesamterfasste Zeit: {total_min:.1f} Minuten.")
-    lines.append(f"- Anzahl der aufgezeichneten Ereignisse: {entries_count}.")
-    lines.append(f"- Anzahl der Moduswechsel (Indikator für Fragmentierung): {switches}.")
+    lines.append(f"- Aufgezeichnete Ereignisse: {entries_count}.")
+    lines.append(f"- Moduswechsel (Anzeichen für Fragmentierung): {switches}.")
 
     if longest_segment:
         lines.append("- Längste zusammenhängende Phasen je Modus:")
@@ -1812,7 +557,6 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
             lines.append(f"  - {mode}: ca. {seg_min:.1f} Minuten")
     lines.append("")
 
-    # 3. Embedding-basierte Verhaltensmuster
     lines.append("## 3. Verhaltens-Embedding & Cluster")
     if has_enough_behavior:
         lines.append(build_behavior_section(today_entries, analysis))
@@ -1820,33 +564,28 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
         lines.append("Zu wenige Datenpunkte für eine robuste Clusteranalyse vorhanden.")
     lines.append("")
 
-    # 4. Behavior Digital Twin (probabilistisches Modell)
-    lines.append("## 4. Behavior Digital Twin (probabilistisches Modell)")
+    lines.append("## 4. Behavior Digital Twin")
     if has_enough_behavior:
         lines.append(build_digital_twin_section(today_entries, analysis, forecast))
     else:
         lines.append("Der Digital Twin wird erstellt, sobald mindestens 10 Aktivitäten vorliegen.")
     lines.append("")
 
-    # 5. Zeitreihenbasierte Verhaltensvorhersage (nächste Stunde)
-    lines.append("## 5. Zeitreihenbasierte Verhaltensvorhersage (nächste Stunde)")
+    lines.append("## 5. Zeitreihenbasierte Vorhersage (nächste Stunde)")
     if has_enough_behavior:
         lines.append(build_forecast_section(today_entries, analysis, forecast))
     else:
         lines.append("Nicht genug Historie für eine sinnvolle Vorhersage.")
     lines.append("")
 
-    # 6. Optimierungsaufgaben
     lines.append("## 6. Konkrete Optimierungsaufgaben für morgen")
     lines.append(build_optimization_section(durations, longest_segment, switches))
     lines.append("")
 
-    # 7. LLM-basierte Interpretation
     lines.append("## 7. KI-Analyse des Nutzungstages")
     lines.append(generate_llm_section(durations, longest_segment, switches, today_entries))
     lines.append("")
 
-    # 8. Referenz
     lines.append("## 8. Datenreferenz")
     if log_path:
         lines.append(f"Die Rohdaten liegen in der Datei `{log_path}`.\n")
@@ -1857,10 +596,10 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
 
 
 # ------------------------------------------------------
-# 5. Hauptfunktion für SelfObserver
+# 8. Hauptfunktion für SelfObserver
 # ------------------------------------------------------
 def generate_daily_report():
-    """Wird von self_observer.py einmal täglich (z. B. 22:50) aufgerufen."""
+    """Generates the daily report (called by self_observer.py)."""
     log_path = latest_log_path()
     all_entries = load_all_logs(log_path)
     today_entries = filter_today(all_entries)
@@ -1868,7 +607,6 @@ def generate_daily_report():
     date_str = datetime.now().strftime("%Y-%m-%d")
 
     if not today_entries:
-        # trotzdem leere Struktur schreiben，方便你看见“今天没数据”
         empty_report = (
             f"# Tagesbericht – {date_str}\n\n"
             "Es wurden für heute keine geeigneten Ereignisdaten gefunden.\n"

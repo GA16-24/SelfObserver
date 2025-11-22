@@ -1,21 +1,22 @@
-import time
+import base64
 import json
 import os
 import subprocess
 import threading
-import base64
+import time
 from datetime import datetime
+from typing import Dict, List
 
+import psutil
+import requests
 import win32gui
 import win32process
-import psutil
-from pywinauto import Desktop
-import requests
 from PIL import ImageGrab
+from pywinauto import Desktop
 
-import daily_report
-import behavior_model
 import behavior_digital_twin
+import behavior_model
+import daily_report
 
 
 # ===============================================
@@ -81,16 +82,21 @@ def log_path_for_date(day):
 # UTILS
 # ===============================================
 
-def load_categories():
+def load_categories() -> Dict[str, List[Dict]]:
     if not os.path.exists(CATEGORIES_FILE):
         return {}
+
     try:
-        return json.load(open(CATEGORIES_FILE, "r", encoding="utf-8"))
-    except:
+        with open(CATEGORIES_FILE, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
         return {}
 
-def save_categories(cat):
-    json.dump(cat, open(CATEGORIES_FILE, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+
+def save_categories(cat: Dict[str, List[Dict]]) -> None:
+    with open(CATEGORIES_FILE, "w", encoding="utf-8") as fh:
+        json.dump(cat, fh, indent=2, ensure_ascii=False)
 
 def normalize_category(cat):
     if not cat:
@@ -112,7 +118,7 @@ def load_heuristics():
 
         try:
             conf = float(rule.get("confidence", 0.0))
-        except Exception:
+        except (TypeError, ValueError):
             conf = 0.0
         conf = max(0.0, min(1.0, conf))
 
@@ -136,14 +142,16 @@ def load_heuristics():
     user_rules = []
     if os.path.exists(HEURISTICS_FILE):
         try:
-            raw = json.load(open(HEURISTICS_FILE, "r", encoding="utf-8"))
-            if isinstance(raw, list):
-                for r in raw:
-                    cleaned = _clean_rule(r)
-                    if cleaned:
-                        user_rules.append(cleaned)
-        except Exception:
-            pass
+            with open(HEURISTICS_FILE, "r", encoding="utf-8") as fh:
+                raw_rules = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            raw_rules = []
+
+        if isinstance(raw_rules, list):
+            for rule in raw_rules:
+                cleaned = _clean_rule(rule)
+                if cleaned:
+                    user_rules.append(cleaned)
 
     return user_rules + DEFAULT_HEURISTICS
 
@@ -223,112 +231,14 @@ def get_uia_labels(hwnd):
 
 def try_get_chrome_url():
     try:
-        tabs = requests.get("http://localhost:9222/json").json()
+        tabs = requests.get("http://localhost:9222/json", timeout=2).json()
         for t in tabs:
             url = t.get("url", "")
             if url.startswith("http"):
                 return url
-    except:
-        pass
+    except (requests.RequestException, ValueError):
+        return ""
     return ""
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
-
-
-def is_ignored_window(window_info):
-    """Return True if the foreground window should be skipped entirely."""
-    if not window_info:
-        return False
-
-    exe = (window_info.get("exe") or "").lower()
-    title = (window_info.get("title") or "").lower()
-
-    if exe in IGNORED_PROCESSES:
-        return True
-
-    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 def is_ignored_window(window_info):
@@ -641,8 +551,8 @@ def write_log(entry, log_path):
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     try:
         behavior_digital_twin.update_state_with_entry(entry)
-    except Exception:
-        pass
+    except Exception as exc:  # safety net: twin updates should not break logging
+        print(f"[DIGITAL TWIN ERROR] {exc}")
 
 
 def pretty_print(e):
