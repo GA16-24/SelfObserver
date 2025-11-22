@@ -45,13 +45,10 @@ LOG_DIR = "logs"
 CATEGORIES_FILE = "categories.json"
 HEURISTICS_FILE = "heuristics.json"
 
-# Processes and titles that should be ignored entirely (not logged or classified)
-IGNORED_PROCESSES = {"lockapp.exe"}
-IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
-
-# Processes and titles that should be ignored entirely (not logged or classified)
-IGNORED_PROCESSES = {"lockapp.exe"}
-IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+# Ollama & models
+OLLAMA = os.environ.get("OLLAMA_EXE", r"C:\\Users\\x1sci\\AppData\\Local\\Programs\\Ollama\\ollama.exe")
+MODEL_TEXT = os.environ.get("SELFOB_TEXT_MODEL", "qwen2.5:7b")
+MODEL_VISION = os.environ.get("SELFOB_VISION_MODEL", "qwen2.5-vl:7b")
 
 # Processes and titles that should be ignored entirely (not logged or classified)
 IGNORED_PROCESSES = {"lockapp.exe"}
@@ -70,9 +67,6 @@ DEFAULT_HEURISTICS = [
 
     {"mode": "ai_chat", "confidence": 0.8, "exe_exact": ["chrome.exe"], "url_contains": ["openai", "chatgpt", "poe.com", "claude.ai"]},
     {"mode": "chatting", "confidence": 0.7, "exe_contains": ["wechat", "weixin", "qq", "discord", "slack", "teams"]},
-
-    {"mode": "ai_chat", "confidence": 0.85, "url_contains": ["kimi.moonshot", "kimi.ai", "kimi.chat"]},
-    {"mode": "ai_chat", "confidence": 0.75, "title_contains": ["kimi"], "url_contains": ["kimi"]},
 
     {"mode": "gaming", "confidence": 0.6, "label_contains": ["game", "play", "hp", "health", "inventory"]},
 ]
@@ -237,6 +231,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 def is_ignored_window(window_info):
@@ -521,32 +529,6 @@ def heuristic_label(snapshot, rules):
     return None
 
 
-def heuristic_label(snapshot, rules):
-    exe = (snapshot.get("exe") or "").lower()
-    title = (snapshot.get("title") or "").lower()
-    url = (snapshot.get("url") or "").lower()
-    labels = " ".join([x.lower() for x in snapshot.get("uia_labels", [])])
-
-    def matches(rule):
-        if "exe_exact" in rule and exe not in [x.lower() for x in rule["exe_exact"]]:
-            return False
-        if "exe_contains" in rule and not any(k in exe for k in rule["exe_contains"]):
-            return False
-        if "title_contains" in rule and not any(k in title for k in rule["title_contains"]):
-            return False
-        if "url_contains" in rule and not any(k in url for k in rule["url_contains"]):
-            return False
-        if "label_contains" in rule and not any(k in labels for k in rule["label_contains"]):
-            return False
-        return True
-
-    for rule in rules:
-        if matches(rule):
-            return {"mode": rule["mode"], "confidence": rule.get("confidence", 0.6)}
-
-    return None
-
-
 # ===============================================
 # Sanity correction (same as previous v5)
 # ===============================================
@@ -743,36 +725,7 @@ def main():
         if snap is None:
             time.sleep(2)
             continue
-
-        # Skip logging entirely when the foreground window is configured to be ignored
-        if snap is None:
-            time.sleep(2)
-            continue
-
-        # Skip logging entirely when the foreground window is configured to be ignored
-        if snap is None:
-            time.sleep(2)
-            continue
-
-        # Skip logging entirely when the foreground window is configured to be ignored
-        if snap is None:
-            time.sleep(2)
-            continue
-
-        # Skip logging entirely when the foreground window is configured to be ignored
-        if snap is None:
-            time.sleep(2)
-            continue
-
-        # Skip logging entirely when the foreground window is configured to be ignored
-        if snap is None:
-            time.sleep(2)
-            continue
-
-        # Skip logging entirely when the foreground window is configured to be ignored
-        if snap is None:
-            time.sleep(2)
-            continue
+            
 
         now = datetime.now()
         if now.date() != current_day:
