@@ -61,40 +61,17 @@ function setTheme(t) {
     applyThemeToLineChart();
 }
 
-const DYNAMIC_COLOR_MAP = {
-    coding: "#4FA3FF",
-    browsing: "#B67BFF",
-    gaming: "#FF6161",
-    chatting: "#5CFF92",
-    video: "#FFCA66",
-    reading: "#56E0E0",
-    writing: "#F97316",
-    ai_chat: "#10B981",
-    music: "#A78BFA",
-    file_management: "#FACC15",
-    exploring: "#22D3EE",
-    settings: "#CBD5E1",
-    studying: "#34D399",
-    system: "#AAB2C8",
-    idle: "#76839B",
-    unknown: "#94a3b8",
-    maybe_gaming: "#FB7185",
-    gaming_hint: "#F472B6",
-};
-
-const FALLBACK_PALETTE = [
-    "#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#14b8a6", "#a855f7",
-    "#f97316", "#10b981", "#eab308", "#8b5cf6", "#06b6d4", "#ef476f",
-    "#118ab2", "#ffd166", "#06d6a0", "#8338ec", "#3a86ff", "#ff006e"
-];
-
 function dynamicColor(mode) {
-    const key = mode?.toLowerCase?.();
-    if (key && DYNAMIC_COLOR_MAP[key]) return DYNAMIC_COLOR_MAP[key];
-    if (!key) return "#94a3b8";
-
-    const hash = [...key].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-    return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
+    const map = {
+        coding: "#4FA3FF",
+        browsing: "#B67BFF",
+        gaming: "#FF6161",
+        chatting: "#5CFF92",
+        video: "#FFCA66",
+        system: "#AAB2C8",
+        idle: "#76839B",
+    };
+    return map[mode?.toLowerCase?.()] || "#94a3b8";
 }
 
 function themeStyle(mode, ctx) {
@@ -337,10 +314,7 @@ async function updateLine() {
             data: { labels: [], datasets: [] },
             options: {
                 animation: false,
-                scales: {
-                    x: { ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } },
-                    y: { beginAtZero: true, ticks: { color: "#cbd5e1" }, grid: { color: "#1e293b" } }
-                },
+                scales: { y: { beginAtZero: true } },
                 plugins: { legend: { labels: { color: "#fff" } } }
             }
         });
@@ -348,31 +322,14 @@ async function updateLine() {
 
     const ctx = document.getElementById("lineChart").getContext("2d");
 
-    const colors = labels.map(l => dynamicColor(l.toLowerCase()) || "#94a3b8");
-
     lineChart.data.labels = labels;
-    lineChart.data.datasets = [Object.assign({
-        label: "Usage",
-        data: values,
-        pointBackgroundColor: colors,
-        pointBorderColor: colors,
-        pointRadius: 5,
-        spanGaps: true,
-    }, themeStyle("usage", ctx))];
-
-    lineChart.options.scales.y.ticks = Object.assign({}, lineChart.options.scales.y.ticks, {
-        callback: (val) => formatMinutesFriendly(val)
+    lineChart.data.datasets = labels.map((label, index) => {
+        const ds = {
+            label,
+            data: labels.map(l => (l === label ? values[index] : null))
+        };
+        return Object.assign(ds, themeStyle(label, ctx));
     });
-
-    lineChart.options.plugins.tooltip = {
-        callbacks: {
-            label: function (context) {
-                const label = context.dataset.label || "Usage";
-                const minutes = context.parsed.y;
-                return `${label}: ${formatMinutesFriendly(minutes)}`;
-            }
-        }
-    };
 
     lineChart.update();
 }
