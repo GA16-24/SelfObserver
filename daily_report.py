@@ -369,6 +369,137 @@ def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, 
     return "\n".join(lines)
 
 
+def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
+    if not entries:
+        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
+
+    analysis = analysis or behavior_model.analyze_behaviors(entries)
+    labels = analysis.get("labels", [])
+    if not labels:
+        return "Keine Cluster konnten berechnet werden."
+
+    clusters = analysis.get("clusters", {})
+    transitions = analysis.get("transitions", {})
+    flow = analysis.get("flow_state_likelihood", 0.0)
+    anomalies = analysis.get("anomaly_indices", [])
+    algo = analysis.get("algorithm", "unbekannt")
+
+    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
+
+    if clusters:
+        lines.append("Top-Cluster:")
+        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
+            lines.append(
+                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
+                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
+            )
+            if info["top_modes"]:
+                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
+                lines.append(f"  • Häufigste Modi: {mode_str}")
+            if info["top_apps"]:
+                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
+                lines.append(f"  • Häufigste Apps: {app_str}")
+
+    if transitions:
+        lines.append("Modus-/Cluster-Wechsel:")
+        for (a, b), count in transitions.most_common(6):
+            lines.append(f"- {a} → {b}: {count}×")
+
+    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
+    if anomalies:
+        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
+
+    return "\n".join(lines)
+
+
+def build_forecast_section(entries, analysis: Dict[str, Any] | None = None):
+    if not entries:
+        return "Keine Daten für eine Vorhersage vorhanden."
+
+    forecast = time_series_forecasting.forecast_next_hour(entries, analysis)
+    dist = forecast.get("distribution", {})
+
+    if not dist:
+        return "Keine verwertbare Vorhersage generiert."
+
+    clusters_meta = forecast.get("clusters_meta", {})
+
+    def cluster_name(lbl):
+        info = clusters_meta.get(lbl)
+        if info:
+            return info.get("label", f"cluster_{lbl}")
+        return f"cluster_{lbl}"
+
+    lines: List[str] = []
+    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
+
+    if forecast.get("predicted_cluster") is not None:
+        cid = forecast["predicted_cluster"]
+        prob = dist.get(cid, 0.0) * 100
+        lines.append(
+            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
+        )
+
+    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
+    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
+        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
+
+    lines.append(
+        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
+    )
+
+    insights = forecast.get("insights", [])
+    if insights:
+        lines.append("Interpretierbare Hinweise:")
+        for insight in insights:
+            lines.append(f"- {insight}")
+
+    return "\n".join(lines)
+
+
+def build_behavior_section(entries):
+    if not entries:
+        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
+
+    analysis = behavior_model.analyze_behaviors(entries)
+    labels = analysis.get("labels", [])
+    if not labels:
+        return "Keine Cluster konnten berechnet werden."
+
+    clusters = analysis.get("clusters", {})
+    transitions = analysis.get("transitions", {})
+    flow = analysis.get("flow_state_likelihood", 0.0)
+    anomalies = analysis.get("anomaly_indices", [])
+    algo = analysis.get("algorithm", "unbekannt")
+
+    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
+
+    if clusters:
+        lines.append("Top-Cluster:")
+        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
+            lines.append(
+                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
+                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
+            )
+            if info["top_modes"]:
+                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
+                lines.append(f"  • Häufigste Modi: {mode_str}")
+            if info["top_apps"]:
+                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
+                lines.append(f"  • Häufigste Apps: {app_str}")
+
+    if transitions:
+        lines.append("Modus-/Cluster-Wechsel:")
+        for (a, b), count in transitions.most_common(6):
+            lines.append(f"- {a} → {b}: {count}×")
+
+    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
+    if anomalies:
+        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
+
+    return "\n".join(lines)
+
+
 def run_llm_analysis(prompt):
     try:
         result = subprocess.run(
