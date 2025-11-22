@@ -15,6 +15,7 @@ from PIL import ImageGrab
 
 import daily_report
 import behavior_model
+import behavior_digital_twin
 
 
 # ===============================================
@@ -618,6 +619,10 @@ def stable_classification(cat_map, heuristics_rules):
 def write_log(entry, log_path):
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    try:
+        behavior_digital_twin.update_state_with_entry(entry)
+    except Exception:
+        pass
 
 
 def pretty_print(e):
