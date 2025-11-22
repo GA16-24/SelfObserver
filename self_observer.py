@@ -14,25 +14,8 @@ import requests
 from PIL import ImageGrab
 
 import daily_report
-
-
-# ===============================================
-# Allowed modes
-# ===============================================
-
-ALLOWED_MODES = [
-    "coding",
-    "gaming",
-    "video",
-    "chatting",
-    "ai_chat",
-    "browsing",
-    "reading",
-    "writing",
-    "system",
-    "file_management",
-    "unknown",
-]
+import behavior_model
+import behavior_digital_twin
 
 
 # ===============================================
@@ -62,9 +45,14 @@ LOG_DIR = "logs"
 CATEGORIES_FILE = "categories.json"
 HEURISTICS_FILE = "heuristics.json"
 
-OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
-MODEL_TEXT = "qwen2.5:7b"
-MODEL_VISION = "qwen2.5vl:7b"
+# Ollama & models
+OLLAMA = os.environ.get("OLLAMA_EXE", r"C:\\Users\\x1sci\\AppData\\Local\\Programs\\Ollama\\ollama.exe")
+MODEL_TEXT = os.environ.get("SELFOB_TEXT_MODEL", "qwen2.5:7b")
+MODEL_VISION = os.environ.get("SELFOB_VISION_MODEL", "qwen2.5-vl:7b")
+
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
@@ -74,45 +62,18 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # ===============================================
 
 DEFAULT_HEURISTICS = [
+    {"mode": "coding", "confidence": 0.8, "exe_contains": ["antigravity"]},
+    {"mode": "coding", "confidence": 0.7, "title_contains": ["antigravity"]},
+
+    {"mode": "ai_chat", "confidence": 0.85, "url_contains": ["kimi.moonshot", "kimi.ai", "kimi.chat"]},
+    {"mode": "ai_chat", "confidence": 0.75, "title_contains": ["kimi"], "url_contains": ["kimi"]},
+
     {"mode": "video", "confidence": 0.9, "url_contains": ["youtube", "bilibili", "tiktok", "youku", "netflix"]},
     {"mode": "video", "confidence": 0.7, "title_contains": ["youtube", "video"]},
     {"mode": "video", "confidence": 0.7, "exe_contains": ["obs64", "vlc", "mpv", "potplayer"]},
 
     {"mode": "ai_chat", "confidence": 0.8, "exe_exact": ["chrome.exe"], "url_contains": ["openai", "chatgpt", "poe.com", "claude.ai"]},
     {"mode": "chatting", "confidence": 0.7, "exe_contains": ["wechat", "weixin", "qq", "discord", "slack", "teams"]},
-
-    {"mode": "coding", "confidence": 0.7, "exe_contains": ["code.exe", "pycharm", "idea64", "devenv"]},
-    {"mode": "writing", "confidence": 0.7, "exe_contains": ["obsidian"]},
-    {"mode": "writing", "confidence": 0.6, "exe_contains": ["word", "notepad", "onenote", "typora", "notion"]},
-    {"mode": "reading", "confidence": 0.6, "exe_contains": ["excel", "powerpnt", "wps"]},
-    {"mode": "file_management", "confidence": 0.6, "exe_contains": ["explorer.exe", "finder", "totalcmd"]},
-
-    {"mode": "gaming", "confidence": 0.6, "label_contains": ["game", "play", "hp", "health", "inventory"]},
-]
-
-
-def log_path_for_date(day):
-    """Return the JSONL log path for a given date object."""
-    return os.path.join(LOG_DIR, f"screen_log_{day.isoformat()}.jsonl")
-
-
-# ===============================================
-# Default heuristics (extendable via heuristics.json)
-# ===============================================
-
-DEFAULT_HEURISTICS = [
-    {"mode": "video", "confidence": 0.9, "url_contains": ["youtube", "bilibili", "tiktok", "youku", "netflix"]},
-    {"mode": "video", "confidence": 0.7, "title_contains": ["youtube", "video"]},
-    {"mode": "video", "confidence": 0.7, "exe_contains": ["obs64", "vlc", "mpv", "potplayer"]},
-
-    {"mode": "ai_chat", "confidence": 0.8, "exe_exact": ["chrome.exe"], "url_contains": ["openai", "chatgpt", "poe.com", "claude.ai"]},
-    {"mode": "chatting", "confidence": 0.7, "exe_contains": ["wechat", "weixin", "qq", "discord", "slack", "teams"]},
-
-    {"mode": "coding", "confidence": 0.7, "exe_contains": ["code.exe", "pycharm", "idea64", "devenv"]},
-    {"mode": "writing", "confidence": 0.7, "exe_contains": ["obsidian"]},
-    {"mode": "writing", "confidence": 0.6, "exe_contains": ["word", "notepad", "onenote", "typora", "notion"]},
-    {"mode": "reading", "confidence": 0.6, "exe_contains": ["excel", "powerpnt", "wps"]},
-    {"mode": "file_management", "confidence": 0.6, "exe_contains": ["explorer.exe", "finder", "totalcmd"]},
 
     {"mode": "gaming", "confidence": 0.6, "label_contains": ["game", "play", "hp", "health", "inventory"]},
 ]
@@ -225,7 +186,12 @@ def parse_model_json(raw, fallback_mode="unknown"):
 
 def capture_screen_base64():
     """Capture full screen, encode to base64."""
-    img = ImageGrab.grab()
+    try:
+        img = ImageGrab.grab()
+    except Exception as e:
+        print("[SCREENSHOT ERROR]", e)
+        return None
+
     path = "screen_shot_tmp.jpg"
     img.save(path, "JPEG", quality=70)
 
@@ -272,6 +238,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 # ===============================================
@@ -353,6 +333,9 @@ def ollama_vision(prompt, base64_img):
     Ollama Vision API — 官方要求 payload 是纯 JSON
     使用 stdin 输入 JSON，而不是 CLI 参数。
     """
+    if not base64_img:
+        return {"mode": "unknown", "confidence": 0.0}
+
     payload = {
         "prompt": f"""
 You are a strict classifier. Only respond with JSON in the form {{"mode": "<mode>", "confidence": <0-1>}}.
@@ -455,32 +438,6 @@ def heuristic_label(snapshot, rules):
     return None
 
 
-def heuristic_label(snapshot, rules):
-    exe = (snapshot.get("exe") or "").lower()
-    title = (snapshot.get("title") or "").lower()
-    url = (snapshot.get("url") or "").lower()
-    labels = " ".join([x.lower() for x in snapshot.get("uia_labels", [])])
-
-    def matches(rule):
-        if "exe_exact" in rule and exe not in [x.lower() for x in rule["exe_exact"]]:
-            return False
-        if "exe_contains" in rule and not any(k in exe for k in rule["exe_contains"]):
-            return False
-        if "title_contains" in rule and not any(k in title for k in rule["title_contains"]):
-            return False
-        if "url_contains" in rule and not any(k in url for k in rule["url_contains"]):
-            return False
-        if "label_contains" in rule and not any(k in labels for k in rule["label_contains"]):
-            return False
-        return True
-
-    for rule in rules:
-        if matches(rule):
-            return {"mode": rule["mode"], "confidence": rule.get("confidence", 0.6)}
-
-    return None
-
-
 # ===============================================
 # Sanity correction (same as previous v5)
 # ===============================================
@@ -539,6 +496,9 @@ def stable_classification(cat_map, heuristics_rules):
             time.sleep(0.3)
             continue
 
+        if is_ignored_window(fw):
+            return None
+
         url = ""
         if fw["exe"].lower() == "chrome.exe":
             url = try_get_chrome_url()
@@ -557,7 +517,7 @@ def stable_classification(cat_map, heuristics_rules):
         time.sleep(0.2)
 
     if not snapshot:
-        return {"mode":"unknown","confidence":0.0}
+        return None
 
     # vote
     final_mode = max(set(modes), key=modes.count)
@@ -576,6 +536,8 @@ def stable_classification(cat_map, heuristics_rules):
 
     snapshot["mode"] = final_mode
     snapshot["confidence"] = conf
+    embedding, _ = behavior_model.build_embedding(snapshot)
+    snapshot["embedding"] = embedding
     return snapshot
 
 
@@ -586,13 +548,23 @@ def stable_classification(cat_map, heuristics_rules):
 def write_log(entry, log_path):
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    try:
+        behavior_digital_twin.update_state_with_entry(entry)
+    except Exception:
+        pass
 
 
 def pretty_print(e):
-    t = e["title"]
-    if len(t) > 50:
-        t = t[:47] + "..."
-    print(f"[{e['ts']}] {e['exe']:<12} | {e['mode']:<10} | {e['confidence']:.2f} | {t}")
+    title = e.get("title") or "<no title>"
+    if len(title) > 50:
+        title = title[:47] + "..."
+
+    exe = e.get("exe", "<unknown exe>")
+    mode = e.get("mode", "unknown")
+    confidence = float(e.get("confidence", 0.0) or 0.0)
+    ts = e.get("ts", "")
+
+    print(f"[{ts}] {exe:<12} | {mode:<10} | {confidence:.2f} | {title}")
 
 
 # ===============================================
@@ -601,18 +573,36 @@ def pretty_print(e):
 
 def schedule_daily_report():
     TARGET_HOUR = 22
-    TARGET_MIN = 0
+    TARGET_MIN = 50
     last_date = None
+
+    def _maybe_generate_report(tag):
+        nonlocal last_date
+        try:
+            p = daily_report.generate_daily_report()
+            last_date = datetime.now().date()
+            print(f"[REPORT SAVED][{tag}] {p}")
+        except Exception as e:
+            print(f"[REPORT ERROR][{tag}] {e}")
 
     while True:
         now = datetime.now()
-        if now.hour == TARGET_HOUR and now.minute == TARGET_MIN and last_date != now.date():
-            try:
-                p = daily_report.generate_daily_report()
-                print("[REPORT SAVED]", p)
-                last_date = now.date()
-            except Exception as e:
-                print("[REPORT ERROR]", e)
+
+        # Catch up immediately if the current time is already past the target window and no report exists.
+        target_dt = now.replace(hour=TARGET_HOUR, minute=TARGET_MIN, second=0, microsecond=0)
+        report_today_exists = os.path.exists(daily_report.report_path_for_date(now.date()))
+        if not report_today_exists and now >= target_dt and last_date != now.date():
+            _maybe_generate_report("catchup")
+            time.sleep(60)
+            continue
+
+        # Regular schedule: check at the configured minute (22:50 only, one per day)
+        if (
+            now.hour == TARGET_HOUR
+            and now.minute == TARGET_MIN
+            and last_date != now.date()
+        ):
+            _maybe_generate_report("scheduled")
             time.sleep(70)
         else:
             time.sleep(15)
@@ -639,6 +629,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         now = datetime.now()
         if now.date() != current_day:
