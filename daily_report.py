@@ -2,11 +2,11 @@ import json
 import os
 import subprocess
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any, Dict, List
 
-import behavior_model
 import behavior_digital_twin
+import behavior_model
 import time_series_forecasting
 from self_observer import ALLOWED_MODES, is_ignored_window
 
@@ -22,21 +22,6 @@ OLLAMA = os.environ.get("OLLAMA_EXE", r"C:\\Users\\x1sci\\AppData\\Local\\Progra
 REPORT_MODEL = os.environ.get("REPORT_MODEL", "qwen2.5:7b")
 
 os.makedirs(REPORT_DIR, exist_ok=True)
-
-
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
-
-
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
-
-
-def report_path_for_date(day: date) -> str:
-    """Return the on-disk path for a report corresponding to a given date."""
-    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
 
 
 def report_path_for_date(day: date) -> str:
