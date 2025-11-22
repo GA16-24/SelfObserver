@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+import behavior_model
 from self_observer import ALLOWED_MODES
 from datetime import datetime
 from collections import defaultdict
@@ -87,7 +88,11 @@ def load_all_logs(log_path=None):
                     "ts": ts,
                     "mode": mode,
                     "exe": obj.get("exe", ""),
-                    "title": obj.get("title", "")
+                    "title": obj.get("title", ""),
+                    "url": obj.get("url", ""),
+                    "uia_labels": obj.get("uia_labels", []),
+                    "confidence": obj.get("confidence", 0.0),
+                    "embedding": obj.get("embedding"),
                 })
             except Exception:
                 # Fehlerhafte Zeilen werden einfach übersprungen
@@ -196,6 +201,49 @@ def build_llm_context(durations, longest_segment, switches, entries):
     ]
 
     return "\n".join(context)
+
+
+def build_behavior_section(entries):
+    if not entries:
+        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
+
+    analysis = behavior_model.analyze_behaviors(entries)
+    labels = analysis.get("labels", [])
+    if not labels:
+        return "Keine Cluster konnten berechnet werden."
+
+    clusters = analysis.get("clusters", {})
+    transitions = analysis.get("transitions", {})
+    flow = analysis.get("flow_state_likelihood", 0.0)
+    anomalies = analysis.get("anomaly_indices", [])
+    algo = analysis.get("algorithm", "unbekannt")
+
+    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
+
+    if clusters:
+        lines.append("Top-Cluster:")
+        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
+            lines.append(
+                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
+                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
+            )
+            if info["top_modes"]:
+                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
+                lines.append(f"  • Häufigste Modi: {mode_str}")
+            if info["top_apps"]:
+                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
+                lines.append(f"  • Häufigste Apps: {app_str}")
+
+    if transitions:
+        lines.append("Modus-/Cluster-Wechsel:")
+        for (a, b), count in transitions.most_common(6):
+            lines.append(f"- {a} → {b}: {count}×")
+
+    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
+    if anomalies:
+        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
+
+    return "\n".join(lines)
 
 
 def run_llm_analysis(prompt):
@@ -350,18 +398,23 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
             lines.append(f"  - {mode}: ca. {seg_min:.1f} Minuten")
     lines.append("")
 
-    # 3. Optimierungsaufgaben
-    lines.append("## 3. Konkrete Optimierungsaufgaben für morgen")
+    # 3. Embedding-basierte Verhaltensmuster
+    lines.append("## 3. Verhaltens-Embedding & Cluster")
+    lines.append(build_behavior_section(today_entries))
+    lines.append("")
+
+    # 4. Optimierungsaufgaben
+    lines.append("## 4. Konkrete Optimierungsaufgaben für morgen")
     lines.append(build_optimization_section(durations, longest_segment, switches))
     lines.append("")
 
-    # 4. LLM-basierte Interpretation
-    lines.append("## 4. KI-Analyse des Nutzungstages")
+    # 5. LLM-basierte Interpretation
+    lines.append("## 5. KI-Analyse des Nutzungstages")
     lines.append(generate_llm_section(durations, longest_segment, switches, today_entries))
     lines.append("")
 
-    # 5. Referenz
-    lines.append("## 5. Datenreferenz")
+    # 6. Referenz
+    lines.append("## 6. Datenreferenz")
     if log_path:
         lines.append(f"Die Rohdaten liegen in der Datei `{log_path}`.\n")
     else:

@@ -14,6 +14,7 @@ import requests
 from PIL import ImageGrab
 
 import daily_report
+import behavior_model
 
 
 # ===============================================
@@ -605,6 +606,8 @@ def stable_classification(cat_map, heuristics_rules):
 
     snapshot["mode"] = final_mode
     snapshot["confidence"] = conf
+    embedding, _ = behavior_model.build_embedding(snapshot)
+    snapshot["embedding"] = embedding
     return snapshot
 
 
