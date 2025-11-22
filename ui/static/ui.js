@@ -4,6 +4,51 @@
 let pieChart = null;
 let lineChart = null;
 
+function formatMinutesFriendly(minutes) {
+    const m = minutes || 0;
+    if (m >= 60) {
+        const hours = m / 60;
+        if (Math.abs(hours - Math.round(hours)) < 0.05) {
+            return `${Math.round(hours)}h`;
+        }
+        return `${hours.toFixed(1)}h`;
+    }
+    if (m >= 10) {
+        return `${Math.round(m)}m`;
+    }
+    return `${m.toFixed(1)}m`;
+}
+
+function formatMinutesFriendly(minutes) {
+    const m = minutes || 0;
+    if (m >= 60) {
+        const hours = m / 60;
+        if (Math.abs(hours - Math.round(hours)) < 0.05) {
+            return `${Math.round(hours)}h`;
+        }
+        return `${hours.toFixed(1)}h`;
+    }
+    if (m >= 10) {
+        return `${Math.round(m)}m`;
+    }
+    return `${m.toFixed(1)}m`;
+}
+
+function formatMinutesFriendly(minutes) {
+    const m = minutes || 0;
+    if (m >= 60) {
+        const hours = m / 60;
+        if (Math.abs(hours - Math.round(hours)) < 0.05) {
+            return `${Math.round(hours)}h`;
+        }
+        return `${hours.toFixed(1)}h`;
+    }
+    if (m >= 10) {
+        return `${Math.round(m)}m`;
+    }
+    return `${m.toFixed(1)}m`;
+}
+
 /* ============================================================
    THEME SYSTEM
 ============================================================ */
@@ -148,11 +193,11 @@ async function updateLogs() {
     [...data].reverse().forEach(d => {
         tbody.innerHTML += `
         <tr class="border-b border-slate-700/30">
-            <td>${d.ts}</td>
-            <td>${d.exe}</td>
-            <td class="font-semibold">${d.mode}</td>
-            <td>${(d.confidence * 100).toFixed(1)}%</td>
-            <td>${d.title}</td>
+            <td class="py-2 pr-4 align-top text-slate-300">${d.ts}</td>
+            <td class="py-2 pr-4 align-top text-slate-200">${d.exe}</td>
+            <td class="py-2 pr-4 align-top font-semibold">${d.mode}</td>
+            <td class="py-2 pr-6 align-top text-slate-200">${(d.confidence * 100).toFixed(1)}%</td>
+            <td class="py-2 pl-2 align-top text-slate-100">${d.title}</td>
         </tr>`;
     });
 
@@ -223,6 +268,15 @@ async function updatePie() {
                             color: "#fff",
                             font: { size: 16, weight: "600" },
                             usePointStyle: true,
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.label || "";
+                                const minutes = context.parsed;
+                                return `${label}: ${formatMinutesFriendly(minutes)}`;
+                            }
                         }
                     }
                 }

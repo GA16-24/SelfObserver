@@ -3,9 +3,9 @@
 SelfObserver is a multi-surface activity tracker that blends desktop sensors, a lightweight browser bridge, and local AI models to build a timeline of what you are doing on your machine. The project is designed to run fully locally and feed its results into a simple Flask dashboard or your own Obsidian vault.
 
 ## Components
-- **Desktop watcher (`self_observer.py`)**: Windows-focused agent that samples the foreground window, captures a screenshot, fuses text + vision classification via local Ollama models, and appends JSONL entries to `logs/screen_log.jsonl`.
+- **Desktop watcher (`self_observer.py`)**: Windows-focused agent that samples the foreground window, captures a screenshot, fuses text + vision classification via local Ollama models, and appends JSONL entries to a per-day file such as `logs/screen_log_2024-09-30.jsonl`.
 - **Vision-only loop (`SelfObserver_Vision.py`)**: Periodically screenshots the display with `mss` and asks a vision model for structured activity summaries, writing results to `vision_logs.jsonl`.
-- **Daily report generator (`daily_report.py`)**: Reads `screen_log.jsonl` and writes Markdown summaries to `SelfObserverDaily` inside your Obsidian vault, with time distributions and suggested optimizations.
+- **Daily report generator (`daily_report.py`)**: Reads the newest `logs/screen_log_*.jsonl` (or the legacy `screen_log.jsonl`) and writes Markdown summaries to `SelfObserverDaily` inside your Obsidian vault, with time distributions and suggested optimizations.
 - **Dashboard (`ui/server.py`)**: Simple Flask app that exposes recent events and time-distribution stats via JSON APIs and renders them with the templates in `ui/templates`.
 - **Browser bridge (`service_worker.js` + `browser-extension-manifest.json`)**: Chrome extension service worker that periodically posts the active tab's title and URL to `http://127.0.0.1:8765/ingest` so desktop context includes browser activity.
 
@@ -25,7 +25,7 @@ SelfObserver is a multi-surface activity tracker that blends desktop sensors, a 
    ```bash
    python self_observer.py
    ```
-   A background thread will generate a daily report at 22:00, and log entries will stream into `logs/screen_log.jsonl`.
+   A background thread will generate a daily report at 22:00, and log entries will stream into a daily `logs/screen_log_<date>.jsonl` file that rolls over automatically at midnight.
 
 ## Running the dashboard
 1. Install Flask:
@@ -51,10 +51,35 @@ python daily_report.py
 The Markdown file will be placed under `SelfObserverDaily` in your Obsidian vault path configured in `daily_report.py`.
 
 ## Logs and data
-- Screen activity logs: `logs/screen_log.jsonl`
+- Screen activity logs: rolling `logs/screen_log_<date>.jsonl` files (with `screen_log.jsonl` supported as a legacy fallback)
 - Vision summaries: `vision_logs.jsonl`
 - Temporary screenshot for the watcher: `screen_shot_tmp.jpg`
 - Temporary screenshot for the vision loop: `screen.png`
+
+## Tuning classification heuristics
+The watcher uses a small, ordered list of heuristics before falling back to the text/vision models. To keep labels future-proof
+as new apps or window titles appear, you can add or override rules in `heuristics.json` without touching the code. The file
+accepts a list of rule objects, checked from top to bottom:
+
+```json
+[
+  {
+    "mode": "writing",
+    "confidence": 0.8,
+    "exe_contains": ["joplin", "logseq"],
+    "title_contains": ["notes"]
+  },
+  {
+    "mode": "coding",
+    "confidence": 0.75,
+    "exe_exact": ["code.exe"],
+    "url_contains": ["github.com"]
+  }
+]
+```
+
+Supported keys per rule: `exe_exact`, `exe_contains`, `title_contains`, `url_contains`, and `label_contains` (for UI Automation
+labels). Rules are sanitized automatically, and the watcher hot-reloads them whenever `heuristics.json` changes.
 
 ## Notes
 - The project currently targets Windows APIs for foreground window detection and may need adaptation for other platforms.
