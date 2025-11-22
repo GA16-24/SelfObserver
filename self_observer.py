@@ -62,6 +62,10 @@ LOG_DIR = "logs"
 CATEGORIES_FILE = "categories.json"
 HEURISTICS_FILE = "heuristics.json"
 
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
@@ -277,6 +281,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 # ===============================================
@@ -547,6 +565,9 @@ def stable_classification(cat_map, heuristics_rules):
             time.sleep(0.3)
             continue
 
+        if is_ignored_window(fw):
+            return None
+
         url = ""
         if fw["exe"].lower() == "chrome.exe":
             url = try_get_chrome_url()
@@ -647,6 +668,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         now = datetime.now()
         if now.date() != current_day:
