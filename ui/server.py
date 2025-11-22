@@ -11,6 +11,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # SelfObserver/
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 LEGACY_LOG = os.path.join(LOG_DIR, "screen_log.jsonl")
 
+# Entries matching these rules are skipped entirely from the UI
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 # ---------------------------------------------
 # Flask App
 # ---------------------------------------------
@@ -56,7 +60,14 @@ def read_logs():
     with open(log_path, "r", encoding="utf-8") as f:
         for line in f:
             try:
-                out.append(json.loads(line))
+                entry = json.loads(line)
+                exe = (entry.get("exe") or "").lower()
+                title = (entry.get("title") or "").lower()
+
+                if exe in IGNORED_PROCESSES or any(k in title for k in IGNORED_TITLE_KEYWORDS):
+                    continue
+
+                out.append(entry)
             except:
                 pass
     return out
