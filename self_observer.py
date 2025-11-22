@@ -68,6 +68,10 @@ HEURISTICS_FILE = "heuristics.json"
 IGNORED_PROCESSES = {"lockapp.exe"}
 IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
@@ -283,6 +287,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 def is_ignored_window(window_info):
@@ -588,7 +606,7 @@ def stable_classification(cat_map, heuristics_rules):
         time.sleep(0.2)
 
     if not snapshot:
-        return {"mode":"unknown","confidence":0.0}
+        return None
 
     # vote
     final_mode = max(set(modes), key=modes.count)
@@ -626,10 +644,16 @@ def write_log(entry, log_path):
 
 
 def pretty_print(e):
-    t = e["title"]
-    if len(t) > 50:
-        t = t[:47] + "..."
-    print(f"[{e['ts']}] {e['exe']:<12} | {e['mode']:<10} | {e['confidence']:.2f} | {t}")
+    title = e.get("title") or "<no title>"
+    if len(title) > 50:
+        title = title[:47] + "..."
+
+    exe = e.get("exe", "<unknown exe>")
+    mode = e.get("mode", "unknown")
+    confidence = float(e.get("confidence", 0.0) or 0.0)
+    ts = e.get("ts", "")
+
+    print(f"[{ts}] {exe:<12} | {mode:<10} | {confidence:.2f} | {title}")
 
 
 # ===============================================
@@ -676,6 +700,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         # Skip logging entirely when the foreground window is configured to be ignored
         if snap is None:
