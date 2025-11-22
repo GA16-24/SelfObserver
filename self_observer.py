@@ -61,6 +61,10 @@ IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 IGNORED_PROCESSES = {"lockapp.exe"}
 IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
 
+# Processes and titles that should be ignored entirely (not logged or classified)
+IGNORED_PROCESSES = {"lockapp.exe"}
+IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
 OLLAMA = r"C:\Users\x1sci\AppData\Local\Programs\Ollama\ollama.exe"
 MODEL_TEXT = "qwen2.5:7b"
 MODEL_VISION = "qwen2.5vl:7b"
@@ -252,6 +256,20 @@ def try_get_chrome_url():
     except:
         pass
     return ""
+
+
+def is_ignored_window(window_info):
+    """Return True if the foreground window should be skipped entirely."""
+    if not window_info:
+        return False
+
+    exe = (window_info.get("exe") or "").lower()
+    title = (window_info.get("title") or "").lower()
+
+    if exe in IGNORED_PROCESSES:
+        return True
+
+    return any(keyword in title for keyword in IGNORED_TITLE_KEYWORDS)
 
 
 def is_ignored_window(window_info):
@@ -658,15 +676,33 @@ def schedule_daily_report():
     TARGET_MIN = 0
     last_date = None
 
+    def _maybe_generate_report(tag):
+        nonlocal last_date
+        try:
+            p = daily_report.generate_daily_report()
+            last_date = datetime.now().date()
+            print(f"[REPORT SAVED][{tag}] {p}")
+        except Exception as e:
+            print(f"[REPORT ERROR][{tag}] {e}")
+
     while True:
         now = datetime.now()
-        if now.hour == TARGET_HOUR and now.minute == TARGET_MIN and last_date != now.date():
-            try:
-                p = daily_report.generate_daily_report()
-                print("[REPORT SAVED]", p)
-                last_date = now.date()
-            except Exception as e:
-                print("[REPORT ERROR]", e)
+
+        # Catch up immediately if the current time is already past the target window and no report exists.
+        target_dt = now.replace(hour=TARGET_HOUR, minute=TARGET_MIN, second=0, microsecond=0)
+        report_today_exists = os.path.exists(daily_report.report_path_for_date(now.date()))
+        if not report_today_exists and now >= target_dt and last_date != now.date():
+            _maybe_generate_report("catchup")
+            time.sleep(60)
+            continue
+
+        # Regular schedule: top-of-hour check (22:00 only, one per day)
+        if (
+            now.hour == TARGET_HOUR
+            and now.minute == TARGET_MIN
+            and last_date != now.date()
+        ):
+            _maybe_generate_report("scheduled")
             time.sleep(70)
         else:
             time.sleep(15)
@@ -693,6 +729,11 @@ def main():
                 heuristics_mtime = current_mtime
 
         snap = stable_classification(cat_map, heuristics_rules)
+
+        # Skip logging entirely when the foreground window is configured to be ignored
+        if snap is None:
+            time.sleep(2)
+            continue
 
         # Skip logging entirely when the foreground window is configured to be ignored
         if snap is None:
