@@ -1,8 +1,14 @@
-import os
 import json
+import os
 import subprocess
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime, date
+from typing import Any, Dict, List
+
+import behavior_model
+import behavior_digital_twin
+import time_series_forecasting
+from self_observer import ALLOWED_MODES
 
 # === Obsidian Pfad ===
 VAULT_PATH = r"D:\40-Personal\003-ObsidianVault\My awesome vault"
@@ -16,6 +22,11 @@ OLLAMA = os.environ.get("OLLAMA_EXE", r"C:\\Users\\x1sci\\AppData\\Local\\Progra
 REPORT_MODEL = os.environ.get("REPORT_MODEL", "qwen2.5:7b")
 
 os.makedirs(REPORT_DIR, exist_ok=True)
+
+
+def report_path_for_date(day: date) -> str:
+    """Return the on-disk path for a report corresponding to a given date."""
+    return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
 
 ANALYSIS_PROMPT = (
     "Du bist eine analytische Beobachtungs-KI. Deine Aufgabe ist es, das digitale "
@@ -86,7 +97,11 @@ def load_all_logs(log_path=None):
                     "ts": ts,
                     "mode": mode,
                     "exe": obj.get("exe", ""),
-                    "title": obj.get("title", "")
+                    "title": obj.get("title", ""),
+                    "url": obj.get("url", ""),
+                    "uia_labels": obj.get("uia_labels", []),
+                    "confidence": obj.get("confidence", 0.0),
+                    "embedding": obj.get("embedding"),
                 })
             except Exception:
                 # Fehlerhafte Zeilen werden einfach übersprungen
@@ -197,6 +212,168 @@ def build_llm_context(durations, longest_segment, switches, entries):
     return "\n".join(context)
 
 
+def build_behavior_section(entries, analysis: Dict[str, Any] | None = None):
+    if not entries:
+        return "Keine Aktivitäten für Verhaltensanalyse vorhanden."
+
+    analysis = analysis or behavior_model.analyze_behaviors(entries)
+    labels = analysis.get("labels", [])
+    if not labels:
+        return "Keine Cluster konnten berechnet werden."
+
+    clusters = analysis.get("clusters", {})
+    transitions = analysis.get("transitions", {})
+    flow = analysis.get("flow_state_likelihood", 0.0)
+    anomalies = analysis.get("anomaly_indices", [])
+    algo = analysis.get("algorithm", "unbekannt")
+
+    lines = [f"Verhaltens-Embedding genutzt (Algorithmus: {algo})."]
+
+    if clusters:
+        lines.append("Top-Cluster:")
+        for lbl, info in sorted(clusters.items(), key=lambda kv: kv[1]["size"], reverse=True):
+            lines.append(
+                f"- Cluster {lbl} → {info['label']} (n={info['size']}, "
+                f"kogn. Last={info['avg_cognitive_load']}, Dopamin={info['avg_dopamine_drive']}, Ziel={info['avg_goal_focus']})"
+            )
+            if info["top_modes"]:
+                mode_str = ", ".join([f"{m} ({c})" for m, c in info["top_modes"]])
+                lines.append(f"  • Häufigste Modi: {mode_str}")
+            if info["top_apps"]:
+                app_str = ", ".join([f"{m} ({c})" for m, c in info["top_apps"]])
+                lines.append(f"  • Häufigste Apps: {app_str}")
+
+    if transitions:
+        lines.append("Modus-/Cluster-Wechsel:")
+        for (a, b), count in transitions.most_common(6):
+            lines.append(f"- {a} → {b}: {count}×")
+
+    lines.append(f"Flow-State-Wahrscheinlichkeit (Dominate Cluster-Anteil): {flow:.2f}")
+    if anomalies:
+        lines.append(f"Ausreißer/rausfallende Punkte: {len(anomalies)}")
+
+    return "\n".join(lines)
+
+
+def build_forecast_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
+    if not entries:
+        return "Keine Daten für eine Vorhersage vorhanden."
+
+    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
+    dist = forecast.get("distribution", {})
+
+    if not dist:
+        return "Keine verwertbare Vorhersage generiert."
+
+    clusters_meta = forecast.get("clusters_meta", {})
+
+    def cluster_name(lbl):
+        info = clusters_meta.get(lbl)
+        if info:
+            return info.get("label", f"cluster_{lbl}")
+        return f"cluster_{lbl}"
+
+    lines: List[str] = []
+    lines.append(f"Modellwahl: {forecast.get('algorithm', 'unbekannt')}")
+
+    if forecast.get("predicted_cluster") is not None:
+        cid = forecast["predicted_cluster"]
+        prob = dist.get(cid, 0.0) * 100
+        lines.append(
+            f"Wahrscheinlichster Cluster in der nächsten Stunde: {cluster_name(cid)} ({prob:.1f}% Wahrscheinlichkeit)."
+        )
+
+    lines.append("Cluster-Wahrscheinlichkeitsverteilung für die nächste Stunde:")
+    for cid, prob in sorted(dist.items(), key=lambda kv: kv[1], reverse=True):
+        lines.append(f"- {cluster_name(cid)}: {prob*100:.1f}%")
+
+    lines.append(
+        f"Erwartete Produktivität: {forecast.get('productivity', 0.0):.2f} | Ablenkungswahrscheinlichkeit: {forecast.get('distraction', 0.0):.2f}"
+    )
+
+    insights = forecast.get("insights", [])
+    if insights:
+        lines.append("Interpretierbare Hinweise:")
+        for insight in insights:
+            lines.append(f"- {insight}")
+
+    return "\n".join(lines)
+
+
+def build_digital_twin_section(entries, analysis: Dict[str, Any] | None = None, forecast: Dict[str, Any] | None = None):
+    if not entries:
+        return "Keine Aktivitäten für den Behavior Digital Twin verfügbar."
+
+    forecast = forecast or time_series_forecasting.forecast_next_hour(entries, analysis)
+    twin = behavior_digital_twin.build_digital_twin(entries, analysis, forecast)
+
+    if not twin.get("features"):
+        return "Digital Twin konnte nicht konstruiert werden."
+
+    matrix = twin.get("transition_matrix", {})
+    triggers = twin.get("procrastination_triggers", ([], []))
+    best, worst = twin.get("productivity_windows", ([], []))
+    stress = twin.get("stress", {})
+    alignment = twin.get("goal_alignment", {})
+    short_term = twin.get("short_term", {})
+    insights = twin.get("insights", [])
+
+    def _fmt_cluster(lbl):
+        clusters = twin.get("clusters", {})
+        info = clusters.get(lbl)
+        if info:
+            return info.get("label", f"cluster_{lbl}")
+        return f"cluster_{lbl}"
+
+    lines: List[str] = []
+    lines.append("Behavior Digital Twin (Embedding + Markov + Kontext) aktiv.")
+
+    if matrix:
+        lines.append("Übergangswahrscheinlichkeiten (Top 5):")
+        flat = []
+        for src, dsts in matrix.items():
+            for dst, prob in dsts.items():
+                flat.append((prob, src, dst))
+        for prob, src, dst in sorted(flat, reverse=True)[:5]:
+            lines.append(f"- {_fmt_cluster(src)} → {_fmt_cluster(dst)}: {prob*100:.1f}%")
+
+    if short_term.get("predicted_cluster") is not None:
+        cid = short_term["predicted_cluster"]
+        prob = short_term.get("distribution", {}).get(cid, 0.0) * 100
+        lines.append(f"Kurzfrist (≈30 Min) erwartet: {_fmt_cluster(cid)} ({prob:.1f}%).")
+
+    if best:
+        peak_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in best])
+        lines.append(f"Produktivitätsfenster: {peak_str}.")
+    if worst:
+        low_str = ", ".join([f"{h:02d}:00 ({score:.2f})" for h, score in worst])
+        lines.append(f"Produktivität fällt oft ab: {low_str}.")
+
+    if triggers[0]:
+        trigger_lines = [f"{app} ({cnt}×)" for app, cnt in triggers[0]]
+        lines.append("Prokrastinationstrigger (Apps): " + ", ".join(trigger_lines))
+    if triggers[1]:
+        context_lines = [f"{ctx} ({cnt}×)" for ctx, cnt in triggers[1]]
+        lines.append("Prokrastinationstrigger (Kontext): " + ", ".join(context_lines))
+
+    if stress:
+        lines.append(
+            f"Stress-/Fragmentierungsindikator: {stress.get('estimate', 'unbekannt')} (Wechselrate {stress.get('switch_rate', 0.0)} pro Minute)."
+        )
+
+    if alignment:
+        lines.append(
+            f"Langfristorientierung: {alignment.get('trend', 'neutral')} (Alignment-Score {alignment.get('alignment', 0.0):.2f}, Ziel={alignment.get('goal', 0.0):.2f}, Dopamin={alignment.get('dopamine', 0.0):.2f})."
+        )
+
+    if insights:
+        lines.append("Zusätzliche Twin-Insights:")
+        for ins in insights[:5]:
+            lines.append(f"- {ins}")
+
+    return "\n".join(lines)
+
+
 def run_llm_analysis(prompt):
     try:
         result = subprocess.run(
@@ -302,20 +479,23 @@ def build_optimization_section(durations, longest_segment, switches):
 # ------------------------------------------------------
 # 5. Report-Text erzeugen
 # ------------------------------------------------------
-def format_report(date_str, durations, longest_segment, switches, entries_count, log_path, today_entries):
+def format_report(date_str, durations, longest_segment, switches, entries_count, log_path, today_entries, analysis):
     total_min = sum(durations.values())
-    work = durations.get("work", 0.0)
-    video = durations.get("video", 0.0)
-    social = durations.get("social", 0.0)
-    idle = durations.get("idle", 0.0)
+    forecast = time_series_forecasting.forecast_next_hour(today_entries, analysis)
 
+    mode_rows = []
     if total_min > 0:
-        work_share = work / total_min * 100
-        video_share = video / total_min * 100
-        social_share = social / total_min * 100
-        idle_share = idle / total_min * 100
-    else:
-        work_share = video_share = social_share = idle_share = 0.0
+        for mode in ALLOWED_MODES:
+            mins = durations.get(mode, 0.0)
+            share = mins / total_min * 100 if total_min > 0 else 0.0
+            mode_rows.append((mode, mins, share))
+
+        # Falls zusätzliche Modi existieren, die nicht in ALLOWED_MODES stehen, trotzdem anzeigen
+        extra_modes = sorted(set(durations.keys()) - set(ALLOWED_MODES))
+        for mode in extra_modes:
+            mins = durations.get(mode, 0.0)
+            share = mins / total_min * 100 if total_min > 0 else 0.0
+            mode_rows.append((mode, mins, share))
 
     lines = []
     lines.append(f"# Tagesbericht – {date_str}\n")
@@ -329,10 +509,8 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
     else:
         lines.append("| Modus   | Minuten | Anteil |")
         lines.append("|---------|---------|--------|")
-        lines.append(f"| work   | {work:7.1f} | {work_share:6.1f} % |")
-        lines.append(f"| video  | {video:7.1f} | {video_share:6.1f} % |")
-        lines.append(f"| social | {social:7.1f} | {social_share:6.1f} % |")
-        lines.append(f"| idle   | {idle:7.1f} | {idle_share:6.1f} % |")
+        for mode, mins, share in mode_rows:
+            lines.append(f"| {mode:<7}| {mins:7.1f} | {share:6.1f} % |")
         lines.append("")
 
     # 2. Muster
@@ -349,18 +527,33 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
             lines.append(f"  - {mode}: ca. {seg_min:.1f} Minuten")
     lines.append("")
 
-    # 3. Optimierungsaufgaben
-    lines.append("## 3. Konkrete Optimierungsaufgaben für morgen")
+    # 3. Embedding-basierte Verhaltensmuster
+    lines.append("## 3. Verhaltens-Embedding & Cluster")
+    lines.append(build_behavior_section(today_entries, analysis))
+    lines.append("")
+
+    # 4. Behavior Digital Twin (probabilistisches Modell)
+    lines.append("## 4. Behavior Digital Twin (probabilistisches Modell)")
+    lines.append(build_digital_twin_section(today_entries, analysis, forecast))
+    lines.append("")
+
+    # 5. Zeitreihenbasierte Verhaltensvorhersage (nächste Stunde)
+    lines.append("## 5. Zeitreihenbasierte Verhaltensvorhersage (nächste Stunde)")
+    lines.append(build_forecast_section(today_entries, analysis, forecast))
+    lines.append("")
+
+    # 6. Optimierungsaufgaben
+    lines.append("## 6. Konkrete Optimierungsaufgaben für morgen")
     lines.append(build_optimization_section(durations, longest_segment, switches))
     lines.append("")
 
-    # 4. LLM-basierte Interpretation
-    lines.append("## 4. KI-Analyse des Nutzungstages")
+    # 7. LLM-basierte Interpretation
+    lines.append("## 7. KI-Analyse des Nutzungstages")
     lines.append(generate_llm_section(durations, longest_segment, switches, today_entries))
     lines.append("")
 
-    # 5. Referenz
-    lines.append("## 5. Datenreferenz")
+    # 8. Referenz
+    lines.append("## 8. Datenreferenz")
     if log_path:
         lines.append(f"Die Rohdaten liegen in der Datei `{log_path}`.\n")
     else:
@@ -373,7 +566,7 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
 # 5. Hauptfunktion für SelfObserver
 # ------------------------------------------------------
 def generate_daily_report():
-    """Wird von self_observer.py einmal täglich (z. B. 22:00) aufgerufen."""
+    """Wird von self_observer.py einmal täglich (z. B. 22:50) aufgerufen."""
     log_path = latest_log_path()
     all_entries = load_all_logs(log_path)
     today_entries = filter_today(all_entries)
@@ -387,12 +580,13 @@ def generate_daily_report():
             "Es wurden für heute keine geeigneten Ereignisdaten gefunden.\n"
             "Mögliche Ursachen: SelfObserver war nicht aktiv oder der Tag ist noch nicht ausreichend fortgeschritten.\n"
         )
-        report_path = os.path.join(REPORT_DIR, f"report_{date_str}.md")
+        report_path = report_path_for_date(datetime.now().date())
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(empty_report)
         return report_path
 
     durations, longest_segment, switches = compute_durations_and_segments(today_entries)
+    analysis = behavior_model.analyze_behaviors(today_entries)
     report_md = format_report(
         date_str,
         durations,
@@ -401,9 +595,10 @@ def generate_daily_report():
         len(today_entries),
         log_path,
         today_entries,
+        analysis,
     )
 
-    report_path = os.path.join(REPORT_DIR, f"report_{date_str}.md")
+    report_path = report_path_for_date(datetime.now().date())
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report_md)
 
