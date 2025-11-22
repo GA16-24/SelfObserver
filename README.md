@@ -5,6 +5,9 @@ SelfObserver is a multi-surface activity tracker that blends desktop sensors, a 
 ## Components
 - **Desktop watcher (`self_observer.py`)**: Windows-focused agent that samples the foreground window, captures a screenshot, fuses text + vision classification via local Ollama models, and appends JSONL entries to a per-day file such as `logs/screen_log_2024-09-30.jsonl`.
 - **Vision-only loop (`SelfObserver_Vision.py`)**: Periodically screenshots the display with `mss` and asks a vision model for structured activity summaries, writing results to `vision_logs.jsonl`.
+- **Behavior embedding & clustering (`behavior_model.py`)**: Builds a 768-dimension embedding per activity (intent, context, cognitive load, emotional tone, dopamine vs. goal orientation, app semantics) and clusters them with HDBSCAN/DBSCAN/K-Means to surface emergent behaviors beyond fixed modes.
+- **Time-series forecasting (`time_series_forecasting.py`)**: Uses behavior embeddings, temporal features, and productivity signals to predict the next-hour behavior cluster, productivity, and distraction likelihood via LSTM/TCN/Prophet or a rolling baseline.
+- **Behavior digital twin (`behavior_digital_twin.py`)**: Maintains a probabilistic, incrementally updated mirror of the user's habits with Markov-style transitions, contextual factors, and short/long-horizon goal alignment signals.
 - **Daily report generator (`daily_report.py`)**: Reads the newest `logs/screen_log_*.jsonl` (or the legacy `screen_log.jsonl`) and writes Markdown summaries to `SelfObserverDaily` inside your Obsidian vault, with time distributions and suggested optimizations.
 - **Dashboard (`ui/server.py`)**: Simple Flask app that exposes recent events and time-distribution stats via JSON APIs and renders them with the templates in `ui/templates`.
 - **Browser bridge (`service_worker.js` + `browser-extension-manifest.json`)**: Chrome extension service worker that periodically posts the active tab's title and URL to `http://127.0.0.1:8765/ingest` so desktop context includes browser activity.
@@ -55,6 +58,15 @@ The Markdown file will be placed under `SelfObserverDaily` in your Obsidian vaul
 - Vision summaries: `vision_logs.jsonl`
 - Temporary screenshot for the watcher: `screen_shot_tmp.jpg`
 - Temporary screenshot for the vision loop: `screen.png`
+- Behavior embeddings + cluster assignments are stored alongside each log entry under `behavior_embedding`, `behavior_cluster`, and `behavior_label`.
+- Time-series forecasts and digital-twin state are derived on the fly from the recorded embeddings and temporal features; daily reports summarize the latest insights.
+
+## Behavior insights pipeline
+- **Embedding**: Every captured activity is transformed into a dense 768-d vector by `behavior_model.build_embedding`. Signals include intent tokens, app/window context, cognitive load, emotional tone, and dopamine-vs-goal cues.
+- **Clustering**: `behavior_model.cluster_behaviors` groups embeddings with HDBSCAN when available (falling back to DBSCAN/K-Means). The top clusters, transition patterns, flow likelihood, and anomalies appear in the daily report.
+- **Forecasting**: `time_series_forecasting.predict_next_hour` ingests embeddings, timestamps (with cyclical features), prior clusters/labels, and productivity to estimate next-hour behavior probabilities, expected productivity, and distraction risk.
+- **Digital twin**: `behavior_digital_twin.update_state` incrementally tracks Markov-style transitions and contextual productivity/distraction signals to infer productivity windows, procrastination triggers, stress/cognitive load cues, and short-term behavior transitions.
+- **Reporting**: `daily_report.py` stitches the above outputs into Markdown—behavior clusters, transitions, flow/anomaly summaries, forecasting distributions, and digital-twin insights (goal alignment, risky periods, recommended deep-work windows).
 
 ## Tuning classification heuristics
 The watcher uses a small, ordered list of heuristics before falling back to the text/vision models. To keep labels future-proof
