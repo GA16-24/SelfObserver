@@ -225,7 +225,12 @@ def parse_model_json(raw, fallback_mode="unknown"):
 
 def capture_screen_base64():
     """Capture full screen, encode to base64."""
-    img = ImageGrab.grab()
+    try:
+        img = ImageGrab.grab()
+    except Exception as e:
+        print("[SCREENSHOT ERROR]", e)
+        return None
+
     path = "screen_shot_tmp.jpg"
     img.save(path, "JPEG", quality=70)
 
@@ -353,6 +358,9 @@ def ollama_vision(prompt, base64_img):
     Ollama Vision API — 官方要求 payload 是纯 JSON
     使用 stdin 输入 JSON，而不是 CLI 参数。
     """
+    if not base64_img:
+        return {"mode": "unknown", "confidence": 0.0}
+
     payload = {
         "prompt": f"""
 You are a strict classifier. Only respond with JSON in the form {{"mode": "<mode>", "confidence": <0-1>}}.
