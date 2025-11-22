@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+from self_observer import ALLOWED_MODES
 from datetime import datetime
 from collections import defaultdict
 
@@ -304,18 +305,20 @@ def build_optimization_section(durations, longest_segment, switches):
 # ------------------------------------------------------
 def format_report(date_str, durations, longest_segment, switches, entries_count, log_path, today_entries):
     total_min = sum(durations.values())
-    work = durations.get("work", 0.0)
-    video = durations.get("video", 0.0)
-    social = durations.get("social", 0.0)
-    idle = durations.get("idle", 0.0)
 
+    mode_rows = []
     if total_min > 0:
-        work_share = work / total_min * 100
-        video_share = video / total_min * 100
-        social_share = social / total_min * 100
-        idle_share = idle / total_min * 100
-    else:
-        work_share = video_share = social_share = idle_share = 0.0
+        for mode in ALLOWED_MODES:
+            mins = durations.get(mode, 0.0)
+            share = mins / total_min * 100 if total_min > 0 else 0.0
+            mode_rows.append((mode, mins, share))
+
+        # Falls zusätzliche Modi existieren, die nicht in ALLOWED_MODES stehen, trotzdem anzeigen
+        extra_modes = sorted(set(durations.keys()) - set(ALLOWED_MODES))
+        for mode in extra_modes:
+            mins = durations.get(mode, 0.0)
+            share = mins / total_min * 100 if total_min > 0 else 0.0
+            mode_rows.append((mode, mins, share))
 
     lines = []
     lines.append(f"# Tagesbericht – {date_str}\n")
@@ -329,10 +332,8 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
     else:
         lines.append("| Modus   | Minuten | Anteil |")
         lines.append("|---------|---------|--------|")
-        lines.append(f"| work   | {work:7.1f} | {work_share:6.1f} % |")
-        lines.append(f"| video  | {video:7.1f} | {video_share:6.1f} % |")
-        lines.append(f"| social | {social:7.1f} | {social_share:6.1f} % |")
-        lines.append(f"| idle   | {idle:7.1f} | {idle_share:6.1f} % |")
+        for mode, mins, share in mode_rows:
+            lines.append(f"| {mode:<7}| {mins:7.1f} | {share:6.1f} % |")
         lines.append("")
 
     # 2. Muster
