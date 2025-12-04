@@ -2,107 +2,499 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SelfObserver Dashboard</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SelfObserver // PRO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0f172a; }
-        .glass {
-            background: rgba(30,41,59,0.55);
-            backdrop-filter: blur(16px);
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f5f5f7; /* Apple system gray */
+            color: #1d1d1f;
+            overflow: hidden; /* Prevent body scroll, let main scroll */
         }
+
+        /* Ambient Background (MacOS Wallpaper vibe) */
+        .ambient-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(circle at 0% 0%, rgba(200, 220, 255, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 100% 0%, rgba(255, 220, 220, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(220, 255, 240, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(240, 220, 255, 0.4) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        /* The "Apple" Card */
+        .ios-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 24px; /* More rounded */
+            box-shadow: 
+                0 4px 6px -1px rgba(0, 0, 0, 0.01), 
+                0 10px 15px -3px rgba(0, 0, 0, 0.01),
+                0 0 0 1px rgba(0, 0, 0, 0.02); /* Subtle inner ring */
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .ios-card:hover {
+            background: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255,255,255,0.5);
+            transform: translateY(-4px); /* Lift effect */
+        }
+
+        /* Interactive Elements */
+        button {
+            transition: all 0.2s ease;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* Typography tweaks */
+        h1, h2, h3 { letter-spacing: -0.02em; }
+        
+        /* Custom Scrollbar - Visible but subtle */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+
+        /* Animations */
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        .status-dot-active {
+            box-shadow: 0 0 10px rgba(52, 199, 89, 0.4);
+            animation: breathe 3s infinite ease-in-out;
+        }
+
+        .tabular-nums { font-variant-numeric: tabular-nums; }
     </style>
 </head>
+<body class="h-screen flex flex-col p-6 max-w-[1600px] mx-auto">
 
-<body class="bg-cover bg-no-repeat text-white"
-      style="
-          background-image: url('/static/background.jpg');
-          background-position: top center;         /* 壁纸对齐上半部分 */
-          background-size: cover;                  /* 覆盖整个屏幕 */
-          background-attachment: fixed;            /* 让壁纸不跟随滚动 */
-      ">
+    <div class="ambient-bg"></div>
 
-
-    <!-- Dark overlay -->
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-[5px] pointer-events-none"></div>
-
-
-    <!-- ALL CONTENT -->
-    <div class="relative z-10 max-w-6xl mx-auto px-6 space-y-8"
-     style="padding-top: 12vh;">   <!-- ★ 关键：往上提高位置 -->
-
-        <!-- ★ THEME SWITCHER (✔ FIXED POSITION INSIDE BODY) -->
-        <div class="glass p-4 rounded-xl shadow-xl flex gap-4 w-fit mb-4">
-            <button onclick="setTheme('glow')" 
-                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
-                Glow
-            </button>
-
-            <button onclick="setTheme('apple')" 
-                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
-                Apple
-            </button>
-
-            <button onclick="setTheme('dsm')" 
-                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
-                DSM
-            </button>
-
-            <button onclick="setTheme('cyber')" 
-                class="px-4 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700/70">
-                Cyberpunk
-            </button>
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-6 shrink-0 px-2">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-white/50 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-sm border border-white/50 transition hover:scale-105 cursor-pointer">
+                <svg class="w-6 h-6 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">SelfObserver</h1>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#34c759] status-dot-active"></span>
+                    <span class="text-xs font-medium text-slate-500">Monitoring Active</span>
+                </div>
+            </div>
         </div>
-        <!-- END SWITCHER -->
-
-
-        <!-- Header -->
-        <div class="glass rounded-2xl p-6 shadow-xl">
-            <h1 class="text-3xl font-bold">SelfObserver Dashboard</h1>
-            <p class="text-slate-400">Real-time activity & usage analytics</p>
+        <div class="bg-white/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/50 shadow-sm flex items-center gap-3 hover:bg-white/60 transition cursor-default">
+            <span id="clock" class="text-sm font-semibold text-slate-700 tabular-nums">00:00:00</span>
+            <span class="text-xs text-slate-400">|</span>
+            <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">California</span>
         </div>
+    </header>
 
-        <!-- Status Cards -->
-        <div class="grid grid-cols-3 gap-6" id="stats"></div>
+    <!-- Main Grid -->
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 min-h-0 pb-2">
 
-        <!-- Charts -->
-        <div class="grid grid-cols-2 gap-6">
-
-            <!-- Pie Chart -->
-            <div class="glass rounded-2xl p-6 shadow-xl">
-                <h2 class="text-xl font-semibold mb-4">Today Usage Distribution</h2>
-                <canvas id="pieChart"></canvas>
+        <!-- LEFT COLUMN (Stats) -->
+        <div class="col-span-1 md:col-span-3 flex flex-col gap-6">
+            
+            <!-- Focus Card -->
+            <div class="ios-card p-6 flex flex-col justify-between h-48 relative overflow-hidden group cursor-default">
+                <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg class="w-24 h-24 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </div>
+                <div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Focus</span>
+                    <div id="stat-mode" class="text-4xl font-bold text-slate-900 mt-1 capitalize tracking-tight">Loading...</div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs font-medium text-slate-500 mb-2">
+                        <span>Intensity</span>
+                        <span id="stat-conf">0%</span>
+                    </div>
+                    <!-- Apple-style progress bar -->
+                    <div class="w-full bg-slate-200/50 h-2 rounded-full overflow-hidden backdrop-blur-sm">
+                        <div id="stat-bar" class="h-full bg-slate-900 rounded-full transition-all duration-1000 ease-out w-0"></div>
+                    </div>
+                </div>
             </div>
 
+            <!-- App Card -->
+            <div class="ios-card p-6 flex flex-col justify-center h-40 cursor-default">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active App</span>
+                </div>
+                <div id="stat-exe" class="text-lg font-semibold text-slate-900 truncate">...</div>
+                <div id="stat-title" class="text-sm text-slate-500 truncate mt-0.5 opacity-80">Waiting for data...</div>
+            </div>
+
+            <!-- Mini Metrics -->
+            <div class="grid grid-cols-2 gap-4 flex-1">
+                <div class="ios-card p-4 flex flex-col justify-center items-center hover:bg-white transition-colors cursor-default">
+                    <span class="text-3xl font-bold text-slate-900 mb-1">4.2h</span>
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase">Productive</span>
+                </div>
+                <div class="ios-card p-4 flex flex-col justify-center items-center hover:bg-white transition-colors cursor-default">
+                    <span class="text-3xl font-bold text-slate-900 mb-1">12</span>
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase">Switches</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER COLUMN (Charts) -->
+        <div class="col-span-1 md:col-span-6 flex flex-col gap-6">
+            
             <!-- Line Chart -->
-            <div class="glass rounded-2xl p-6 shadow-xl">
-                <h2 class="text-xl font-semibold mb-4">Today Usage Timeline</h2>
-                <canvas id="lineChart"></canvas>
+            <div class="ios-card p-6 flex-[2] flex flex-col min-h-0">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-bold text-slate-800">Activity Trend</h2>
+                    <div class="bg-slate-100/50 p-0.5 rounded-lg flex text-[10px] font-semibold">
+                        <button class="px-3 py-1 bg-white shadow-sm rounded-md text-slate-900 cursor-pointer">Today</button>
+                        <button class="px-3 py-1 text-slate-400 hover:text-slate-600 cursor-pointer">Week</button>
+                    </div>
+                </div>
+                <div class="relative w-full flex-1">
+                    <canvas id="lineChart"></canvas>
+                </div>
             </div>
 
+            <!-- Pie Chart (Breakdown) -->
+            <div class="ios-card p-6 flex-1 flex flex-col justify-center min-h-0 relative">
+                 <h2 class="text-sm font-bold text-slate-800 absolute top-6 left-6">Distribution</h2>
+                 <div class="flex items-center justify-around h-full">
+                     <div class="h-32 w-32 relative cursor-pointer">
+                         <canvas id="pieChart"></canvas>
+                     </div>
+                     <!-- Legend -->
+                     <div id="pie-legend" class="flex flex-col gap-2 text-xs min-w-[140px]"></div>
+                 </div>
+            </div>
         </div>
 
-        <!-- Log Table -->
-        <div class="glass rounded-2xl p-6 shadow-xl">
-            <h2 class="text-xl font-semibold mb-4">Latest Activity</h2>
-            <table class="w-full text-left table-fixed">
-                <thead>
-                    <tr class="text-slate-400 text-sm">
-                        <th class="py-2 pr-4 w-32">Time</th>
-                        <th class="py-2 pr-4 w-24">Exe</th>
-                        <th class="py-2 pr-4 w-28">Mode</th>
-                        <th class="py-2 pr-6 w-24">Conf</th>
-                        <th class="py-2 pl-2">Title</th>
-                    </tr>
-                </thead>
-                <tbody id="log-body" class="text-sm"></tbody>
-            </table>
+        <!-- RIGHT COLUMN (Logs) -->
+        <div class="col-span-1 md:col-span-3 flex flex-col min-h-0">
+            <div class="ios-card h-full flex flex-col overflow-hidden">
+                <div class="p-5 border-b border-slate-100/50 flex justify-between items-center bg-white/30 backdrop-blur-sm">
+                    <h2 class="text-sm font-bold text-slate-800">Live Feed</h2>
+                    <div class="flex gap-1">
+                        <span class="w-2 h-2 rounded-full bg-red-400 cursor-pointer hover:bg-red-500 transition-colors"></span>
+                        <span class="w-2 h-2 rounded-full bg-yellow-400 cursor-pointer hover:bg-yellow-500 transition-colors"></span>
+                        <span class="w-2 h-2 rounded-full bg-green-400 cursor-pointer hover:bg-green-500 transition-colors"></span>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-2" id="log-container">
+                    <table class="w-full text-left border-collapse">
+                        <tbody id="log-body">
+                            <!-- Logs injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
-    </div>
+    </main>
 
-    <script src="/static/ui.js"></script>
+    <script>
+        // CONFIG
+        // Disable demo mode so the dashboard reflects real activity instead of random mock data
+        const DEMO_MODE = false; 
+
+        // --- UTILS ---
+        let pieChart = null;
+        let lineChart = null;
+
+        // Apple-inspired Palette
+        const PALETTE = {
+            coding: "#1d1d1f",    // Black
+            browsing: "#86868b",  // Gray
+            gaming: "#ff3b30",    // Red
+            chatting: "#ff9500",  // Orange
+            video: "#5856d6",     // Purple
+            idle: "#e5e5ea",      // Light Gray
+            default: "#8e8e93"
+        };
+
+        function getColor(mode) {
+            return PALETTE[mode?.toLowerCase()] || PALETTE.default;
+        }
+
+        function formatMinutesFriendly(minutes) {
+            const value = minutes || 0;
+            if (value >= 60) return (value / 60).toFixed(1) + "h";
+            return Math.round(value) + "m";
+        }
+
+        // --- UPDATERS ---
+
+        function getMockData(endpoint) {
+            if (endpoint === "/api/stats/day") {
+                // Return a stable mock so visuals are consistent when demoing without telemetry
+                return { "coding": 240, "browsing": 120, "chatting": 45, "idle": 30 };
+            }
+            if (endpoint === "/api/latest") {
+                return [];
+            }
+            if (endpoint === "/api/stats/hour") {
+                return [];
+            }
+            return null;
+        }
+
+        async function fetchData(endpoint) {
+            if (DEMO_MODE) return getMockData(endpoint);
+            try {
+                const res = await fetch(endpoint);
+                return await res.json();
+            } catch (e) {
+                console.error("API Error", e);
+                return endpoint === "/api/latest" ? [] : {};
+            }
+        }
+
+        async function updateDashboard() {
+            const latestData = await fetchData("/api/latest");
+            const statsData = await fetchData("/api/stats/day");
+            const hourlyData = await fetchData("/api/stats/hour");
+
+            if (!latestData || !latestData.length) return;
+
+            // 1. Update Hero Stats
+            const current = latestData[0];
+            const modeEl = document.getElementById("stat-mode");
+            const exeEl = document.getElementById("stat-exe");
+            const titleEl = document.getElementById("stat-title");
+            
+            // Only update DOM text if changed to prevent selection flickering
+            if (modeEl && modeEl.innerText !== current.mode) modeEl.innerText = current.mode;
+            if (exeEl && exeEl.innerText !== current.exe) exeEl.innerText = current.exe;
+            if (titleEl && titleEl.innerText !== current.title) titleEl.innerText = current.title;
+            
+            const confEl = document.getElementById("stat-conf");
+            if (confEl) confEl.innerText = (current.confidence * 100).toFixed(0) + "%";
+            
+            // Update bar width
+            const bar = document.getElementById("stat-bar");
+            if (bar) {
+                bar.style.width = (current.confidence * 100) + "%";
+                bar.style.backgroundColor = getColor(current.mode);
+            }
+
+            // 2. Update Log Table
+            const tbody = document.getElementById("log-body");
+            if (tbody) {
+                tbody.innerHTML = "";
+                latestData.forEach(d => {
+                    const row = `
+                    <tr class="hover:bg-white/40 transition-colors rounded-lg group cursor-default">
+                        <td class="py-2.5 px-3 text-[10px] font-medium text-slate-400 tabular-nums w-14 align-top pt-3">${d.ts}</td>
+                        <td class="py-2 px-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${getColor(d.mode)}"></span>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="text-xs font-semibold text-slate-700 truncate">${d.exe}</span>
+                                    <span class="text-[10px] text-slate-500 truncate max-w-[140px] opacity-70">${d.title}</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }
+
+            // 3. Update Pie Chart (Smoothly)
+            updatePie(statsData);
+
+            // 4. Update Line Chart (Smoothly)
+            updateLine(hourlyData);
+        }
+
+        // Common Tooltip Options for iOS feel
+        const iosTooltip = {
+            enabled: true,
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            titleColor: '#1d1d1f',
+            bodyColor: '#1d1d1f',
+            borderColor: 'rgba(0,0,0,0.05)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 12,
+            displayColors: true,
+            titleFont: { family: 'Inter', size: 13, weight: '600' },
+            bodyFont: { family: 'Inter', size: 12 },
+            boxPadding: 4
+        };
+
+        function renderPieLegend(labels, values, hasData) {
+            const legend = document.getElementById("pie-legend");
+            if (!legend) return;
+
+            if (!hasData) {
+                legend.innerHTML = '<div class="text-[11px] font-semibold text-slate-400">No data available</div>';
+                return;
+            }
+
+            legend.innerHTML = labels.map((label, idx) => {
+                const color = getColor(label);
+                const value = values[idx];
+                return `
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span>
+                            <span class="text-slate-600 font-medium">${label}</span>
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase">${formatMinutesFriendly(value)}</span>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function updatePie(data) {
+            const canvas = document.getElementById("pieChart");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            const labels = Object.keys(data || {});
+            const values = Object.values(data || {});
+            const hasData = labels.length > 0;
+            const displayLabels = hasData ? labels : ["No Data"];
+            const displayValues = hasData ? values : [1];
+            const colors = displayLabels.map(l => hasData ? getColor(l) : "#e5e7eb");
+
+            if (pieChart) {
+                pieChart.data.labels = displayLabels;
+                pieChart.data.datasets[0].data = displayValues;
+                pieChart.data.datasets[0].backgroundColor = colors;
+                pieChart.update();
+            } else {
+                pieChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: displayLabels,
+                        datasets: [{
+                            data: displayValues,
+                            backgroundColor: colors,
+                            borderWidth: 0,
+                            hoverOffset: 15
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '80%',
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true
+                        },
+                        plugins: { 
+                            legend: { display: false }, 
+                            tooltip: iosTooltip 
+                        },
+                        layout: { padding: 10 }
+                    }
+                });
+            }
+
+            renderPieLegend(displayLabels, displayValues, hasData);
+        }
+
+        function updateLine(data) {
+            const canvas = document.getElementById("lineChart");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            const timeline = Array.isArray(data) ? data : [];
+
+            // Group entries into 10-minute buckets over the last hour
+            const bucketed = new Map();
+            const now = new Date();
+            timeline.forEach(item => {
+                const ts = new Date(item.ts);
+                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
+                if (minutesAgo >= 0 && minutesAgo < 6) {
+                    const key = 5 - minutesAgo; // reverse so oldest first
+                    bucketed.set(key, (bucketed.get(key) || 0) + 1);
+                }
+            });
+
+            const labels = Array.from({ length: 6 }, (_, idx) => {
+                const t = new Date(now.getTime() - (5 - idx) * 10 * 60000);
+                return t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            });
+
+            const newData = labels.map((_, idx) => bucketed.get(idx) || 0);
+
+            if (lineChart) {
+                lineChart.data.datasets[0].data = newData;
+                lineChart.update('none'); 
+            } else {
+                // Gradient for line chart fill
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(0,0,0,0.1)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+                lineChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Productivity',
+                            data: newData,
+                            borderColor: '#1d1d1f',
+                            backgroundColor: gradient,
+                            borderWidth: 2,
+                            tension: 0.4, 
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: '#1d1d1f',
+                            pointBorderWidth: 2,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: iosTooltip
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: '#86868b' } },
+                            y: { grid: { color: 'rgba(0,0,0,0.05)', borderDash: [5, 5] }, ticks: { display: false }, border: { display: false } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Clock
+        setInterval(() => {
+            const clockEl = document.getElementById("clock");
+            if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('en-US', {hour12: false});
+        }, 1000);
+
+        // Init
+        window.addEventListener('load', () => {
+            updateDashboard();
+            // Faster interval to show off the smooth chart updates
+            setInterval(updateDashboard, 2000);
+        });
+
+    </script>
 </body>
 </html>
