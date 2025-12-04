@@ -179,11 +179,7 @@
                          <canvas id="pieChart"></canvas>
                      </div>
                      <!-- Legend -->
-                     <div class="flex flex-col gap-2 text-xs">
-                         <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-800"></span><span class="text-slate-600 font-medium">Coding</span></div>
-                         <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-400"></span><span class="text-slate-600 font-medium">Browsing</span></div>
-                         <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-orange-400"></span><span class="text-slate-600 font-medium">Communication</span></div>
-                     </div>
+                     <div id="pie-legend" class="flex flex-col gap-2 text-xs min-w-[140px]"></div>
                  </div>
             </div>
         </div>
@@ -233,6 +229,12 @@
 
         function getColor(mode) {
             return PALETTE[mode?.toLowerCase()] || PALETTE.default;
+        }
+
+        function formatMinutesFriendly(minutes) {
+            const value = minutes || 0;
+            if (value >= 60) return (value / 60).toFixed(1) + "h";
+            return Math.round(value) + "m";
         }
 
         // --- UPDATERS ---
@@ -335,26 +337,53 @@
             boxPadding: 4
         };
 
+        function renderPieLegend(labels, values, hasData) {
+            const legend = document.getElementById("pie-legend");
+            if (!legend) return;
+
+            if (!hasData) {
+                legend.innerHTML = '<div class="text-[11px] font-semibold text-slate-400">No data available</div>';
+                return;
+            }
+
+            legend.innerHTML = labels.map((label, idx) => {
+                const color = getColor(label);
+                const value = values[idx];
+                return `
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span>
+                            <span class="text-slate-600 font-medium">${label}</span>
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase">${formatMinutesFriendly(value)}</span>
+                    </div>
+                `;
+            }).join("");
+        }
+
         function updatePie(data) {
             const canvas = document.getElementById("pieChart");
             if (!canvas) return;
             const ctx = canvas.getContext("2d");
             const labels = Object.keys(data || {});
             const values = Object.values(data || {});
-            const colors = labels.map(l => getColor(l));
+            const hasData = labels.length > 0;
+            const displayLabels = hasData ? labels : ["No Data"];
+            const displayValues = hasData ? values : [1];
+            const colors = displayLabels.map(l => hasData ? getColor(l) : "#e5e7eb");
 
             if (pieChart) {
-                pieChart.data.labels = labels;
-                pieChart.data.datasets[0].data = values;
+                pieChart.data.labels = displayLabels;
+                pieChart.data.datasets[0].data = displayValues;
                 pieChart.data.datasets[0].backgroundColor = colors;
-                pieChart.update(); 
+                pieChart.update();
             } else {
                 pieChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
-                        labels: labels,
+                        labels: displayLabels,
                         datasets: [{
-                            data: values,
+                            data: displayValues,
                             backgroundColor: colors,
                             borderWidth: 0,
                             hoverOffset: 15
@@ -376,6 +405,8 @@
                     }
                 });
             }
+
+            renderPieLegend(displayLabels, displayValues, hasData);
         }
 
         function updateLine(data) {
