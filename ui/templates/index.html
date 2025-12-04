@@ -213,7 +213,8 @@
 
     <script>
         // CONFIG
-        const DEMO_MODE = true; 
+        // Disable demo mode so the dashboard reflects real activity instead of random mock data
+        const DEMO_MODE = false; 
 
         // --- UTILS ---
         let pieChart = null;
@@ -237,25 +238,17 @@
         // --- UPDATERS ---
 
         function getMockData(endpoint) {
-            if (endpoint === "stats") {
-                // Return slightly randomized data to show chart updating without redrawing
-                const base = { "Coding": 240, "Browsing": 120, "Chat": 45, "Idle": 30 };
-                // Add jitter
-                return Object.fromEntries(Object.entries(base).map(([k,v]) => [k, v + Math.floor(Math.random() * 10)]));
+            if (endpoint === "/api/stats/day") {
+                // Return a stable mock so visuals are consistent when demoing without telemetry
+                return { "coding": 240, "browsing": 120, "chatting": 45, "idle": 30 };
             }
-            if (endpoint === "latest") {
-                const apps = ["VS Code", "Safari", "Discord", "Music", "Terminal"];
-                const modes = ["coding", "browsing", "chatting", "video", "coding"];
-                const titles = ["index.html - Portfolio", "Apple Design Resources", "#design-systems", "Chill Mix", "git commit -m 'fix'"];
-                
-                return Array.from({length: 15}, (_, i) => ({
-                    ts: new Date(Date.now() - i * 60000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    exe: apps[Math.floor(Math.random() * apps.length)],
-                    mode: modes[Math.floor(Math.random() * modes.length)],
-                    confidence: 0.85 + (Math.random() * 0.14),
-                    title: titles[Math.floor(Math.random() * titles.length)]
-                }));
+            if (endpoint === "/api/latest") {
+                return [];
             }
+            if (endpoint === "/api/stats/hour") {
+                return [];
+            }
+            return null;
         }
 
         async function fetchData(endpoint) {
@@ -265,14 +258,15 @@
                 return await res.json();
             } catch (e) {
                 console.error("API Error", e);
-                return endpoint === "latest" ? [] : {};
+                return endpoint === "/api/latest" ? [] : {};
             }
         }
 
         async function updateDashboard() {
-            const latestData = await fetchData("latest");
-            const statsData = await fetchData("stats");
-            
+            const latestData = await fetchData("/api/latest");
+            const statsData = await fetchData("/api/stats/day");
+            const hourlyData = await fetchData("/api/stats/hour");
+
             if (!latestData || !latestData.length) return;
 
             // 1. Update Hero Stats
@@ -322,7 +316,7 @@
             updatePie(statsData);
 
             // 4. Update Line Chart (Smoothly)
-            updateLine(statsData);
+            updateLine(hourlyData);
         }
 
         // Common Tooltip Options for iOS feel
@@ -388,10 +382,26 @@
             const canvas = document.getElementById("lineChart");
             if (!canvas) return;
             const ctx = canvas.getContext("2d");
-            const labels = ["9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM"];
-            // Generating fake trend data based on the random jitter
-            const jitter = () => Math.floor(Math.random() * 20);
-            const newData = [20 + jitter(), 45 + jitter(), 30 + jitter(), 60 + jitter(), 35 + jitter(), 70 + jitter()];
+            const timeline = Array.isArray(data) ? data : [];
+
+            // Group entries into 10-minute buckets over the last hour
+            const bucketed = new Map();
+            const now = new Date();
+            timeline.forEach(item => {
+                const ts = new Date(item.ts);
+                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
+                if (minutesAgo >= 0 && minutesAgo < 6) {
+                    const key = 5 - minutesAgo; // reverse so oldest first
+                    bucketed.set(key, (bucketed.get(key) || 0) + 1);
+                }
+            });
+
+            const labels = Array.from({ length: 6 }, (_, idx) => {
+                const t = new Date(now.getTime() - (5 - idx) * 10 * 60000);
+                return t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            });
+
+            const newData = labels.map((_, idx) => bucketed.get(idx) || 0);
 
             if (lineChart) {
                 lineChart.data.datasets[0].data = newData;
