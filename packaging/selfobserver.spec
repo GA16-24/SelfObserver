@@ -2,7 +2,7 @@
 
 import pathlib
 import sys
-from PyInstaller.building.build_main import Tree
+
 
 
 def resolve_project_root():
@@ -26,9 +26,20 @@ ui_path = project_root / "ui"
 
 datas = []
 # Bundle templates and static assets so Flask can render from the exe
-if ui_path.exists():
-    datas += Tree(str(ui_path / "templates"), prefix="ui/templates").toc
-    datas += Tree(str(ui_path / "static"), prefix="ui/static").toc
+def add_tree(path: pathlib.Path, prefix: str):
+    """Recursively append files under *path* with target *prefix* in the bundle."""
+
+    if not path.exists():
+        return
+
+    for file in path.rglob("*"):
+        if file.is_file():
+            relative = file.relative_to(path)
+            datas.append((str(file), str(pathlib.Path(prefix) / relative)))
+
+
+add_tree(ui_path / "templates", "ui/templates")
+add_tree(ui_path / "static", "ui/static")
 
 # Ship default config files so the bundled app has sensible defaults
 for name in [
