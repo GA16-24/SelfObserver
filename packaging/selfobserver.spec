@@ -1,9 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import pathlib
+import sys
 from PyInstaller.building.build_main import Tree
 
-project_root = pathlib.Path(__file__).resolve().parent.parent
+
+def resolve_project_root():
+    """Return project root even when __file__ is undefined (PyInstaller bug)."""
+
+    spec_path = globals().get("__file__")
+    if spec_path:
+        return pathlib.Path(spec_path).resolve().parent.parent
+
+    # When __file__ is missing, look for the spec path in argv (pyinstaller <spec>)
+    for arg in sys.argv[1:]:
+        if arg.endswith(".spec"):
+            return pathlib.Path(arg).resolve().parent.parent
+
+    # Fallback to current working directory so builds still run
+    return pathlib.Path.cwd()
+
+
+project_root = resolve_project_root()
 ui_path = project_root / "ui"
 
 datas = []
