@@ -1125,6 +1125,10 @@
         }
 
         function updateLine(data) {
+            // If Chart.js failed to load (offline / blocked CDN), skip quietly so the
+            // rest of the dashboard can still render without the line chart.
+            if (typeof Chart === 'undefined') return;
+
             const canvas = document.getElementById("lineChart");
             if (!canvas) return;
             const ctx = canvas.getContext("2d");
