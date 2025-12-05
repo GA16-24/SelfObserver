@@ -12,6 +12,10 @@ SelfObserver is a multi-surface activity tracker that blends desktop sensors, a 
 - **Dashboard (`ui/server.py`)**: Simple Flask app that exposes recent events and time-distribution stats via JSON APIs and renders them with the templates in `ui/templates`.
 - **Browser bridge (`service_worker.js` + `browser-extension-manifest.json`)**: Chrome extension service worker that periodically posts the active tab's title and URL to `http://127.0.0.1:8765/ingest` so desktop context includes browser activity.
 
+## Code structure
+- `self_observer.py` remains the single entry point; it now delegates to the `selfobserver/` package for configuration, screen capture, heuristics, classification, logging, and daily reporting.
+- `selfobserver/config.py` centralizes constants and filesystem paths, while `selfobserver/capture.py`, `selfobserver/classifier.py`, and `selfobserver/logger.py` keep the watcher loop small and readable.
+
 ## Prerequisites
 - Python 3.10+
 - Windows-only dependencies for the desktop watcher: `pywin32`, `psutil`, `pywinauto`, `Pillow`.
