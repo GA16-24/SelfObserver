@@ -18,7 +18,7 @@ from .models import ollama_text, ollama_vision
 
 
 TEXT_PROMPT = """
-You classify computer activity. Use ONLY this JSON output: {"mode": "<mode>", "confidence": <0-1>}.
+You classify computer activity. Use ONLY this JSON output: {{"mode": "<mode>", "confidence": <0-1>}}.
 Allowed modes: {allowed_modes}.
 
 Window data:

@@ -1,9 +1,14 @@
 import json
+import os
 
 import behavior_digital_twin
 
 
 def write_log(entry, log_path):
+    log_dir = os.path.dirname(log_path)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     try:
