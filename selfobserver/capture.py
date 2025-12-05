@@ -1,18 +1,27 @@
 import base64
+import importlib
 import time
+from functools import lru_cache
 from typing import Optional
 
-import psutil
-import win32gui
-import win32process
-from PIL import ImageGrab
-from pywinauto import Desktop
 import requests
 
 from .config import IGNORED_PROCESSES, IGNORED_TITLE_KEYWORDS
 
 
+@lru_cache(maxsize=None)
+def _require(module_name: str, install_hint: str):
+    """Import a dependency or raise a clear message if it's missing."""
+
+    if importlib.util.find_spec(module_name) is None:
+        raise ModuleNotFoundError(
+            f"Missing dependency '{module_name}'. Install it with `{install_hint}` before running the watcher."
+        )
+    return importlib.import_module(module_name)
+
+
 def capture_screen_base64() -> Optional[str]:
+    ImageGrab = _require("PIL.ImageGrab", "pip install pillow")
     try:
         img = ImageGrab.grab()
     except Exception as e:
@@ -27,6 +36,10 @@ def capture_screen_base64() -> Optional[str]:
 
 
 def get_foreground_window():
+    win32gui = _require("win32gui", "pip install pywin32")
+    win32process = _require("win32process", "pip install pywin32")
+    psutil = _require("psutil", "pip install psutil")
+
     hwnd = win32gui.GetForegroundWindow()
     if not hwnd:
         return None
@@ -41,6 +54,7 @@ def get_foreground_window():
 
 def get_uia_labels(hwnd):
     try:
+        Desktop = _require("pywinauto", "pip install pywinauto").Desktop
         app = Desktop(backend="uia").window(handle=hwnd)
         return [c.window_text() for c in app.children() if c.window_text()]
     except Exception:
