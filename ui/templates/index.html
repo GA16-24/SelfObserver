@@ -329,7 +329,10 @@
             <!-- Line Chart -->
             <div class="glass-card p-6 flex-[3] flex flex-col min-h-0">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-sm font-bold text-main">Activity Trend</h2>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-sm font-bold text-main">Activity Trend</h2>
+                        <span id="trend-now" class="hidden text-[10px] font-semibold text-sub bg-white/60 px-2 py-1 rounded-full"></span>
+                    </div>
                     <div class="bg-white/20 backdrop-blur-md p-0.5 rounded-lg flex text-[10px] font-semibold border border-white/20">
                         <button class="px-3 py-1 bg-white/80 shadow-sm rounded-md text-slate-900 cursor-pointer transition-colors">Today</button>
                         <button class="px-3 py-1 text-sub hover:text-main cursor-pointer transition-colors">Week</button>
@@ -790,11 +793,11 @@
 
         function getMockTopApps() {
             return [
-                { name: "Visual Studio Code", cat: "Coding", percent: 0.8, time: "4h 20m", color: "bg-blue-500" },
-                { name: "Google Chrome", cat: "Browsing", percent: 0.4, time: "2h 10m", color: "bg-yellow-500" },
-                { name: "Slack", cat: "Chat", percent: 0.2, time: "45m", color: "bg-purple-500" },
-                { name: "Terminal", cat: "System", percent: 0.15, time: "30m", color: "bg-slate-700" },
-                { name: "Spotify", cat: "Media", percent: 0.1, time: "15m", color: "bg-green-500" }
+                { exe: "Visual Studio Code", minutes: 260 },
+                { exe: "Google Chrome", minutes: 130 },
+                { exe: "Slack", minutes: 45 },
+                { exe: "Terminal", minutes: 30 },
+                { exe: "Spotify", minutes: 15 }
             ];
         }
 
@@ -811,22 +814,17 @@
         }
 
         function buildTopApps(data) {
-            if (!data || !data.length) return getMockTopApps();
-            const counts = new Map();
-            data.forEach(item => {
-                const key = item.exe || 'Unknown';
-                counts.set(key, (counts.get(key) || 0) + 1);
-            });
-            const total = Array.from(counts.values()).reduce((a, b) => a + b, 0) || 1;
+            const entries = Array.isArray(data) && data.length ? data : getMockTopApps();
+            const totalMinutes = entries.reduce((sum, app) => sum + (app.minutes || 0), 0) || 1;
             const colorPool = ['bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-slate-700', 'bg-green-500', 'bg-orange-500'];
-            return Array.from(counts.entries())
-                .sort((a, b) => b[1] - a[1])
+            return entries
+                .sort((a, b) => (b.minutes || 0) - (a.minutes || 0))
                 .slice(0, 5)
-                .map(([name, count], idx) => ({
-                    name,
+                .map((app, idx) => ({
+                    name: app.exe || app.name || 'Unknown',
                     cat: '',
-                    percent: count / total,
-                    time: `${count} log${count === 1 ? '' : 's'}`,
+                    percent: (app.minutes || 0) / totalMinutes,
+                    time: formatMinutesFriendly(app.minutes || 0),
                     color: colorPool[idx % colorPool.length]
                 }));
         }
@@ -906,7 +904,7 @@
         async function fetchData(endpoint, fallback) {
             if (DEMO_MODE) return fallback();
             try {
-                const res = await fetch(endpoint);
+                const res = await fetch(endpoint, { cache: 'no-store' });
                 return await res.json();
             } catch (e) {
                 console.error("API Error", e);
@@ -933,6 +931,7 @@
             const latestData = await fetchData("/api/latest", getMockLatest);
             const statsDay = await fetchData("/api/stats/day", getMockStatsDay);
             const statsHour = await fetchData("/api/stats/hour", getMockStatsHour);
+            const statsApps = await fetchData("/api/stats/apps", getMockTopApps);
 
             latestEntries = Array.isArray(latestData) ? latestData : [];
 
@@ -958,7 +957,7 @@
             updateLine(lineTimelineData);
 
             // 3. Update Top Apps from observed executables
-            renderTopApps(latestEntries);
+            renderTopApps(statsApps);
 
             // If there is no recent activity, keep the rest of the UI readable
             if (!latestEntries.length) {
@@ -976,6 +975,7 @@
             const modeEl = document.getElementById("stat-mode");
             const confEl = document.getElementById("stat-conf");
             const barEl = document.getElementById("stat-bar");
+            const trendNow = document.getElementById("trend-now");
 
             if (modeEl) modeEl.innerText = current.mode || 'Unknown';
             if (confEl) confEl.innerText = ((current.confidence || 0) * 100).toFixed(0) + "%";
@@ -986,27 +986,11 @@
                 }
             }
 
-            // 2. Update Log Table
-            const tbody = document.getElementById("log-body");
-            if (tbody) {
-                tbody.innerHTML = "";
-                latestEntries.forEach(d => {
-                    const tsDisplay = d.ts_display || toLocaleTime(d.ts);
-                    const row = `
-                    <tr class="hover:bg-white/10 transition-colors rounded-lg group animate-[fadeIn_0.5s_ease-in-out]">
-                        <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${tsDisplay}</td>
-                        <td class="py-2 px-1">
-                            <div class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                <div class="flex flex-col">
-                                    <span class="text-xs font-semibold text-main truncate">${d.exe || 'Unknown'}</span>
-                                    <span class="text-[10px] text-sub truncate max-w-[180px] opacity-80">${d.title || ''}</span>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', row);
-                });
+            if (trendNow) {
+                const exe = current.exe || 'Unknown app';
+                const mode = current.mode ? ` · ${current.mode}` : '';
+                trendNow.innerText = `Now: ${exe}${mode}`;
+                trendNow.classList.remove('hidden');
             }
 
             // 4. Update Log Table
@@ -1125,6 +1109,10 @@
         }
 
         function updateLine(data) {
+            // If Chart.js failed to load (offline / blocked CDN), skip quietly so the
+            // rest of the dashboard can still render without the line chart.
+            if (typeof Chart === 'undefined') return;
+
             const canvas = document.getElementById("lineChart");
             if (!canvas) return;
             const ctx = canvas.getContext("2d");
@@ -1152,7 +1140,7 @@
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Focus',
+                            label: 'Activity',
                             data: values,
                             borderColor: mainColor,
                             backgroundColor: gradient,

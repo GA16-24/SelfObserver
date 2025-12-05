@@ -8,7 +8,8 @@ from typing import Any, Dict, List
 import behavior_digital_twin
 import behavior_model
 import time_series_forecasting
-from self_observer import ALLOWED_MODES, is_ignored_window
+from selfobserver.capture import is_ignored_window
+from selfobserver.config import ALLOWED_MODES
 
 # === Obsidian Pfad ===
 VAULT_PATH = r"D:\\40-Personal\\003-ObsidianVault\\My awesome vault"

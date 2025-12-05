@@ -35,9 +35,9 @@ SelfObserver is a multi-surface activity tracker that blends desktop sensors, a 
    A background thread will generate a daily report at 22:00, and log entries will stream into a daily `logs/screen_log_<date>.jsonl` file that rolls over automatically at midnight.
 
 ## Running the dashboard
-1. Install Flask:
+1. Install the UI dependency bundle (includes Flask):
    ```bash
-   pip install flask
+   pip install -r requirements.txt
    ```
 2. From the repository root, launch the server:
    ```bash
