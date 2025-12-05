@@ -179,6 +179,54 @@ def api_stats_hour():
 
 
 # ---------------------------------------------
+# API: today's top applications by active time
+# ---------------------------------------------
+@app.route("/api/stats/apps")
+def api_stats_apps():
+    logs = read_logs()
+    today = datetime.date.today()
+
+    durations = {}  # exe → seconds
+    last_ts = None
+    last_exe = None
+
+    for entry in logs:
+        try:
+            ts = datetime.datetime.fromisoformat(entry["ts"])
+        except Exception:
+            continue
+        if ts.date() != today:
+            continue
+
+        if last_ts and last_exe:
+            delta = (ts - last_ts).total_seconds()
+            if delta > 0:
+                durations[last_exe] = durations.get(last_exe, 0) + delta
+
+        last_ts = ts
+        last_exe = entry.get("exe") or "Unknown"
+
+    # Count the time from the last log entry until now so the UI reflects
+    # the currently active application.
+    if last_ts and last_exe:
+        delta = (datetime.datetime.now() - last_ts).total_seconds()
+        durations[last_exe] = durations.get(last_exe, 0) + max(delta, 0)
+
+    durations_minutes = (
+        {name: seconds / 60.0 for name, seconds in durations.items()} if durations else {}
+    )
+
+    top = [
+        {"exe": name, "minutes": minutes}
+        for name, minutes in sorted(
+            durations_minutes.items(), key=lambda item: item[1], reverse=True
+        )
+    ]
+
+    return jsonify(top)
+
+
+# ---------------------------------------------
 # API: system vitals (CPU / RAM / GPU)
 # ---------------------------------------------
 def _safe_psutil():
