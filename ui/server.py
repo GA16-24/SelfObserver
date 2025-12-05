@@ -2,6 +2,9 @@ from flask import Flask, render_template, jsonify
 import json
 import os
 import datetime
+import platform
+import re
+from typing import List
 
 # ---------------------------------------------
 # Absolute path setup (MUST be above read_logs)
@@ -10,6 +13,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))        # ui/
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # SelfObserver/
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 LEGACY_LOG = os.path.join(LOG_DIR, "screen_log.jsonl")
+
+# Obsidian vault for upcoming goals (env override supported)
+OBSIDIAN_VAULT = os.environ.get("OBSIDIAN_VAULT") or os.path.expanduser("~/Obsidian")
 
 # Entries matching these rules are skipped entirely from the UI
 IGNORED_PROCESSES = {"lockapp.exe"}
@@ -150,6 +156,204 @@ def api_stats_hour():
             })
 
     return jsonify(timeline)
+
+
+# ---------------------------------------------
+# API: system vitals (CPU / RAM / GPU)
+# ---------------------------------------------
+def _safe_psutil():
+    try:
+        import psutil  # type: ignore
+
+        return psutil
+    except Exception:
+        return None
+
+
+def _safe_gpu_info():
+    try:
+        import GPUtil  # type: ignore
+
+        gpus = GPUtil.getGPUs()
+        out = []
+        for g in gpus:
+            out.append(
+                {
+                    "name": g.name,
+                    "load": g.load * 100 if g.load is not None else None,
+                    "memory_used_gb": g.memoryUsed / 1024 if g.memoryUsed is not None else None,
+                    "memory_total_gb": g.memoryTotal / 1024 if g.memoryTotal is not None else None,
+                }
+            )
+        return out
+    except Exception:
+        try:
+            import pynvml  # type: ignore
+
+            pynvml.nvmlInit()
+            device_count = pynvml.nvmlDeviceGetCount()
+            gpus = []
+            for idx in range(device_count):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(idx)
+                name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+                mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                gpus.append(
+                    {
+                        "name": name,
+                        "load": getattr(util, "gpu", None),
+                        "memory_used_gb": mem.used / (1024 ** 3),
+                        "memory_total_gb": mem.total / (1024 ** 3),
+                    }
+                )
+            return gpus
+        except Exception:
+            return None
+
+
+def system_snapshot():
+    psutil = _safe_psutil()
+    warnings: List[str] = []
+
+    cpu_model = platform.processor() or platform.uname().processor or None
+    cpu_cores = os.cpu_count() or None
+    cpu_load = None
+    cpu_freq = None
+
+    ram_used_gb = None
+    ram_total_gb = None
+    ram_percent = None
+
+    if psutil:
+        try:
+            cpu_load = psutil.cpu_percent(interval=0.3)
+        except Exception:
+            cpu_load = None
+        try:
+            freq = psutil.cpu_freq()
+            cpu_freq = freq.current if freq else None
+        except Exception:
+            cpu_freq = None
+        try:
+            mem = psutil.virtual_memory()
+            ram_used_gb = mem.used / (1024 ** 3)
+            ram_total_gb = mem.total / (1024 ** 3)
+            ram_percent = mem.percent
+        except Exception:
+            pass
+    else:
+        warnings.append("psutil not installed; install psutil for live vitals")
+
+    if not cpu_model:
+        try:
+            with open("/proc/cpuinfo", "r") as fh:
+                for line in fh:
+                    if line.lower().startswith("model name"):
+                        cpu_model = line.split(":", 1)[1].strip()
+                        break
+        except Exception:
+            pass
+
+    gpus = _safe_gpu_info()
+    if gpus is None:
+        warnings.append("GPU details unavailable; install GPUtil or pynvml for detection")
+
+    return {
+        "cpu_model": cpu_model,
+        "cpu_load": cpu_load,
+        "cpu_cores": cpu_cores,
+        "cpu_freq_mhz": cpu_freq,
+        "ram_used_gb": ram_used_gb,
+        "ram_total_gb": ram_total_gb,
+        "ram_percent": ram_percent,
+        "gpus": gpus or [],
+        "warnings": warnings,
+    }
+
+
+@app.route("/api/system")
+def api_system():
+    return jsonify(system_snapshot())
+
+
+# ---------------------------------------------
+# API: upcoming goals from Obsidian vault
+# ---------------------------------------------
+TASK_RE = re.compile(r"^- \[([ xX])\]\s+(.*)$")
+DUE_RE = re.compile(r"(?:due[:\s]|@due\()?([0-9]{4}-[0-9]{2}-[0-9]{2})")
+
+
+def parse_goals_from_file(path: str) -> List[dict]:
+    out: List[dict] = []
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                match = TASK_RE.match(line.strip())
+                if not match:
+                    continue
+                done_flag, body = match.groups()
+                done = done_flag.lower() == "x"
+                due = None
+                due_match = DUE_RE.search(body)
+                if due_match:
+                    due = due_match.group(1)
+
+                # Remove common markers from the task text
+                clean = DUE_RE.sub("", body).strip()
+                clean = clean.replace("#task", "").replace("#todo", "").strip("- ")
+
+                out.append(
+                    {
+                        "title": clean,
+                        "done": done,
+                        "due": due,
+                        "source": os.path.relpath(path, OBSIDIAN_VAULT),
+                        "modified": os.path.getmtime(path),
+                    }
+                )
+    except Exception:
+        return []
+    return out
+
+
+def collect_obsidian_goals(limit: int = 6) -> List[dict]:
+    if not OBSIDIAN_VAULT or not os.path.isdir(OBSIDIAN_VAULT):
+        return []
+
+    tasks: List[dict] = []
+    for root, _dirs, files in os.walk(OBSIDIAN_VAULT):
+        for name in files:
+            if not name.lower().endswith(".md"):
+                continue
+            path = os.path.join(root, name)
+            tasks.extend(parse_goals_from_file(path))
+
+    # Only keep incomplete tasks
+    tasks = [t for t in tasks if not t.get("done")]
+
+    # Prefer due date, otherwise use last modified time
+    def sort_key(task):
+        due = task.get("due")
+        mtime = task.get("modified") or 0
+        try:
+            due_dt = datetime.date.fromisoformat(due) if due else None
+        except Exception:
+            due_dt = None
+        return (due_dt or datetime.date.fromtimestamp(mtime), -mtime)
+
+    tasks.sort(key=sort_key)
+    return tasks[:limit]
+
+
+@app.route("/api/goals")
+def api_goals():
+    goals = collect_obsidian_goals()
+    if not goals:
+        goals = [
+            {"title": "Connect Obsidian vault (set OBSIDIAN_VAULT)", "source": "setup", "due": None},
+            {"title": "Capture next actions with '- [ ]' in your notes", "source": "tips", "due": None},
+        ]
+    return jsonify({"goals": goals})
 
 # ---------------------------------------------
 @app.route("/")

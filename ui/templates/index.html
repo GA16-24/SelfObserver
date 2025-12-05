@@ -293,21 +293,10 @@
             <div class="glass-card p-5 flex flex-col justify-center cursor-default min-h-[140px]">
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-sub uppercase tracking-wider">Daily Goals</span>
-                    <span class="text-[10px] font-bold text-accent-color opacity-80">2/3</span>
+                    <span id="goal-summary" class="text-[10px] font-bold text-accent-color opacity-80">Syncing…</span>
                 </div>
-                <div class="space-y-3">
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox" checked>
-                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Clear Email Inbox</span>
-                    </label>
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox" checked>
-                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Push Production Fix</span>
-                    </label>
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox">
-                        <span class="text-xs font-medium text-main group-hover:opacity-80 transition-colors">Review Pull Requests</span>
-                    </label>
+                <div id="goals-list" class="space-y-3">
+                    <div class="text-[11px] font-medium text-sub">Loading goals from Obsidian…</div>
                 </div>
             </div>
 
@@ -367,41 +356,34 @@
             <div class="glass-card p-5 h-1/3 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="text-sm font-bold text-main">System Vitals</h2>
-                    <span class="text-[10px] font-mono text-sub bg-black/5 px-2 py-0.5 rounded">M2 CHIP</span>
+                    <span id="system-chip" class="text-[10px] font-mono text-sub bg-black/5 px-2 py-0.5 rounded">Detecting…</span>
                 </div>
-                
+
                 <!-- CPU -->
                 <div class="space-y-1">
                     <div class="flex justify-between text-[10px] font-semibold text-sub">
-                        <span>CPU Load</span>
-                        <span id="cpu-val">12%</span>
+                        <span id="cpu-name" class="truncate">CPU</span>
+                        <span id="cpu-val">—</span>
                     </div>
                     <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
-                        <div id="cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: 12%"></div>
+                        <div id="cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
 
                 <!-- RAM -->
                 <div class="space-y-1">
                     <div class="flex justify-between text-[10px] font-semibold text-sub">
-                        <span>Memory</span>
-                        <span id="ram-val">8.4 GB</span>
+                        <span id="ram-label">Memory</span>
+                        <span id="ram-val">—</span>
                     </div>
                     <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
-                        <div id="ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: 45%"></div>
+                        <div id="ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <!-- NET -->
-                <div class="grid grid-cols-2 gap-2 mt-1">
-                    <div class="bg-white/30 rounded-lg p-2 flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-sub uppercase">Download</span>
-                        <span class="text-xs font-bold text-main">45 MB/s</span>
-                    </div>
-                    <div class="bg-white/30 rounded-lg p-2 flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-sub uppercase">Upload</span>
-                        <span class="text-xs font-bold text-main">12 MB/s</span>
-                    </div>
+                <!-- GPU -->
+                <div class="space-y-2 mt-2" id="gpu-list">
+                    <div class="bg-white/20 rounded-lg p-2 text-[11px] font-medium text-sub">Scanning GPUs…</div>
                 </div>
             </div>
 
@@ -898,6 +880,29 @@
             }));
         }
 
+        function getMockGoals() {
+            return {
+                goals: [
+                    { title: "Ship dashboard polish", due: new Date(Date.now() + 86400000).toISOString().slice(0, 10), source: "Daily.md" },
+                    { title: "Triage inbox and Slack", source: "Inbox.md" },
+                    { title: "Prep sprint notes", due: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), source: "Sprint.md" },
+                ]
+            };
+        }
+
+        function getMockSystem() {
+            return {
+                cpu_model: 'Apple M2',
+                cpu_load: Math.floor(Math.random() * 40) + 10,
+                cpu_cores: 10,
+                ram_used_gb: 8.4,
+                ram_total_gb: 16,
+                ram_percent: 52,
+                gpus: [{ name: 'Integrated GPU', load: 38, memory_used_gb: 2.1, memory_total_gb: 4 }],
+                warnings: [],
+            };
+        }
+
         async function fetchData(endpoint, fallback) {
             if (DEMO_MODE) return fallback();
             try {
@@ -930,7 +935,41 @@
             const statsHour = await fetchData("/api/stats/hour", getMockStatsHour);
 
             latestEntries = Array.isArray(latestData) ? latestData : [];
-            if (!latestEntries.length) return;
+
+            // 1. Update pie/ring data
+            updateRingData(statsDay);
+
+            // 2. Update Line Chart
+            const timeline = Array.isArray(statsHour) ? statsHour : [];
+            const grouped = new Map();
+            const now = new Date();
+            timeline.forEach(item => {
+                const ts = new Date(item.ts);
+                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
+                if (minutesAgo >= 0 && minutesAgo < 6) {
+                    const key = 5 - minutesAgo;
+                    grouped.set(key, (grouped.get(key) || 0) + 1);
+                }
+            });
+            lineTimelineData = Array.from({ length: 6 }, (_, idx) => ({
+                ts: new Date(now.getTime() - (5 - idx) * 10 * 60000),
+                val: grouped.get(idx) || 0
+            }));
+            updateLine(lineTimelineData);
+
+            // 3. Update Top Apps from observed executables
+            renderTopApps(latestEntries);
+
+            // If there is no recent activity, keep the rest of the UI readable
+            if (!latestEntries.length) {
+                const tbody = document.getElementById("log-body");
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td class="py-4 px-3 text-[11px] text-sub">No recent activity logged.</td></tr>`;
+                }
+                const modeEl = document.getElementById("stat-mode");
+                if (modeEl) modeEl.innerText = "Idle";
+                return;
+            }
 
             // 1. Update Hero Stats
             const current = latestEntries[0];
@@ -970,43 +1009,119 @@
                 });
             }
 
-            // 3. Update pie/ring data
-            updateRingData(statsDay);
+            // 4. Update Log Table
+            const tbody = document.getElementById("log-body");
+            if (tbody) {
+                tbody.innerHTML = "";
+                latestEntries.forEach(d => {
+                    const tsDisplay = d.ts_display || toLocaleTime(d.ts);
+                    const row = `
+                    <tr class="hover:bg-white/10 transition-colors rounded-lg group animate-[fadeIn_0.5s_ease-in-out]">
+                        <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${tsDisplay}</td>
+                        <td class="py-2 px-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                <div class="flex flex-col">
+                                    <span class="text-xs font-semibold text-main truncate">${d.exe || 'Unknown'}</span>
+                                    <span class="text-[10px] text-sub truncate max-w-[180px] opacity-80">${d.title || ''}</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+            }
+        }
 
-            // 4. Update Line Chart
-            const timeline = Array.isArray(statsHour) ? statsHour : [];
-            const grouped = new Map();
-            const now = new Date();
-            timeline.forEach(item => {
-                const ts = new Date(item.ts);
-                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
-                if (minutesAgo >= 0 && minutesAgo < 6) {
-                    const key = 5 - minutesAgo;
-                    grouped.set(key, (grouped.get(key) || 0) + 1);
-                }
-            });
-            lineTimelineData = Array.from({ length: 6 }, (_, idx) => ({
-                ts: new Date(now.getTime() - (5 - idx) * 10 * 60000),
-                val: grouped.get(idx) || 0
-            }));
-            updateLine(lineTimelineData);
+        function updateSystemVitals(snapshot) {
+            const chip = document.getElementById('system-chip');
+            if (chip) chip.innerText = snapshot.cpu_model || 'Unknown CPU';
 
-            // 5. Update Top Apps
-            renderTopApps(latestEntries);
+            const cpuName = document.getElementById('cpu-name');
+            const coresLabel = snapshot.cpu_cores ? ` · ${snapshot.cpu_cores} cores` : '';
+            if (cpuName) cpuName.innerText = (snapshot.cpu_model || 'CPU') + coresLabel;
 
-            // 6. Update System Vitals (mocked)
-            const cpu = Math.floor(Math.random() * 30) + 5;
-            const ram = (Math.random() * 2 + 8).toFixed(1);
+            const load = snapshot.cpu_load;
+            const cpuVal = document.getElementById('cpu-val');
             const cpuBar = document.getElementById('cpu-bar');
+            if (cpuVal) cpuVal.innerText = load != null ? `${Math.round(load)}%` : '—';
+            if (cpuBar) cpuBar.style.width = load != null ? `${Math.min(100, load)}%` : '0%';
+
+            const ramLabel = document.getElementById('ram-label');
+            const ramVal = document.getElementById('ram-val');
             const ramBar = document.getElementById('ram-bar');
-            if (cpuBar) {
-                document.getElementById('cpu-val').innerText = cpu + "%";
-                cpuBar.style.width = cpu + "%";
+            const total = snapshot.ram_total_gb;
+            const used = snapshot.ram_used_gb;
+            const percent = snapshot.ram_percent;
+            if (ramLabel) ramLabel.innerText = total ? `Memory (${total.toFixed(1)} GB)` : 'Memory';
+            if (ramVal) {
+                const usedText = used != null ? used.toFixed(1) : '—';
+                const totalText = total != null ? total.toFixed(1) : '—';
+                const pctText = percent != null ? `${Math.round(percent)}%` : '';
+                ramVal.innerText = `${usedText}${total ? ' / ' + totalText : ''} GB ${pctText}`.trim();
             }
-            if (ramBar) {
-                document.getElementById('ram-val').innerText = ram + " GB";
-                ramBar.style.width = ((ram / 16) * 100) + "%";
+            if (ramBar) ramBar.style.width = percent != null ? `${Math.min(100, percent)}%` : '0%';
+
+            const gpuList = document.getElementById('gpu-list');
+            if (gpuList) {
+                const gpus = snapshot.gpus || [];
+                if (!gpus.length) {
+                    gpuList.innerHTML = '<div class="bg-white/20 rounded-lg p-2 text-[11px] font-medium text-sub">No GPU detected</div>';
+                } else {
+                    gpuList.innerHTML = gpus.map(g => {
+                        const loadText = g.load != null ? `${Math.round(g.load)}%` : '—';
+                        const memText = g.memory_used_gb != null && g.memory_total_gb != null
+                            ? `${g.memory_used_gb.toFixed(1)} / ${g.memory_total_gb.toFixed(1)} GB`
+                            : '';
+                        return `
+                            <div class="bg-white/20 rounded-lg p-2 flex justify-between items-center">
+                                <div class="flex flex-col min-w-0">
+                                    <span class="text-[11px] font-semibold text-main truncate">${g.name || 'GPU'}</span>
+                                    <span class="text-[10px] text-sub">${memText}</span>
+                                </div>
+                                <span class="text-[11px] font-bold text-main">${loadText}</span>
+                            </div>
+                        `;
+                    }).join('');
+                }
             }
+        }
+
+        function renderGoals(goals) {
+            const list = document.getElementById('goals-list');
+            const summary = document.getElementById('goal-summary');
+            if (!list) return;
+            const items = Array.isArray(goals) ? goals : [];
+            if (summary) summary.innerText = items.length ? `${items.length} upcoming` : '0 upcoming';
+
+            if (!items.length) {
+                list.innerHTML = '<div class="text-[11px] font-medium text-sub">No open tasks found in Obsidian.</div>';
+                return;
+            }
+
+            list.innerHTML = items.map(goal => {
+                const due = goal.due ? `Due ${goal.due}` : (goal.source || 'Captured from Obsidian');
+                const isDone = goal.done ? 'checked' : '';
+                return `
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox" ${isDone} disabled>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-xs font-semibold text-main truncate">${goal.title || 'Untitled goal'}</span>
+                            <span class="text-[10px] font-medium text-sub truncate">${due}</span>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        async function refreshSystemVitals() {
+            const snapshot = await fetchData('/api/system', getMockSystem);
+            updateSystemVitals(snapshot || {});
+        }
+
+        async function refreshGoals() {
+            const data = await fetchData('/api/goals', getMockGoals);
+            renderGoals((data && data.goals) ? data.goals : []);
         }
 
         function updateLine(data) {
@@ -1076,8 +1191,12 @@
             initThemeMenu(); // Build the new menu
             drawRings();
             renderTopApps();
+            refreshGoals();
+            refreshSystemVitals();
             updateDashboard();
             setInterval(updateDashboard, 3000);
+            setInterval(refreshSystemVitals, 5000);
+            setInterval(refreshGoals, 60000);
             
             // Add Fade In Animation
             const style = document.createElement('style');
