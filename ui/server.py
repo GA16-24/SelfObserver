@@ -67,6 +67,8 @@ def read_logs():
         for line in f:
             try:
                 entry = json.loads(line)
+                if not entry.get("ts"):
+                    continue
                 exe = (entry.get("exe") or "").lower()
                 title = (entry.get("title") or "").lower()
 
@@ -88,13 +90,16 @@ def api_latest():
 
     # Ensure newest entry is first so the UI hero card shows the current window
     try:
-        recent.sort(key=lambda e: datetime.datetime.fromisoformat(e["ts"]), reverse=True)
+        recent.sort(
+            key=lambda e: datetime.datetime.fromisoformat(e.get("ts", "")),
+            reverse=True,
+        )
     except Exception:
         recent.reverse()
 
     for entry in recent:
         try:
-            ts = datetime.datetime.fromisoformat(entry["ts"])
+            ts = datetime.datetime.fromisoformat(entry.get("ts", ""))
             entry["ts_display"] = ts.strftime("%H:%M")
         except Exception:
             entry["ts_display"] = entry.get("ts")
@@ -114,7 +119,10 @@ def api_stats_day():
     last_mode = None
 
     for entry in logs:
-        ts = datetime.datetime.fromisoformat(entry["ts"])
+        try:
+            ts = datetime.datetime.fromisoformat(entry["ts"])
+        except Exception:
+            continue
         if ts.date() != today:
             continue
 
@@ -123,7 +131,7 @@ def api_stats_day():
             durations[last_mode] = durations.get(last_mode, 0) + delta
 
         last_ts = ts
-        last_mode = entry["mode"]
+        last_mode = entry.get("mode")
 
     # Count the time from the last log entry until now so the pie chart
     # reflects the current active segment instead of dropping it.
@@ -148,11 +156,14 @@ def api_stats_hour():
     timeline = []
 
     for entry in logs:
-        ts = datetime.datetime.fromisoformat(entry["ts"])
+        try:
+            ts = datetime.datetime.fromisoformat(entry["ts"])
+        except Exception:
+            continue
         if ts >= one_hour_ago:
             timeline.append({
                 "ts": entry["ts"],
-                "mode": entry["mode"]
+                "mode": entry.get("mode")
             })
 
     return jsonify(timeline)
