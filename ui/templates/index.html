@@ -8,162 +8,342 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #f5f5f7; /* Apple system gray */
-            color: #1d1d1f;
-            overflow: hidden; /* Prevent body scroll, let main scroll */
+        :root {
+            /* Default Theme (Apple/Glass) */
+            --bg-gradient: radial-gradient(circle at 0% 0%, rgba(200, 220, 255, 0.4) 0%, transparent 50%),
+                           radial-gradient(circle at 100% 0%, rgba(255, 220, 220, 0.4) 0%, transparent 50%),
+                           radial-gradient(circle at 100% 100%, rgba(220, 255, 240, 0.4) 0%, transparent 50%),
+                           radial-gradient(circle at 0% 100%, rgba(240, 220, 255, 0.4) 0%, transparent 50%);
+            --card-bg: rgba(255, 255, 255, 0.65);
+            --card-border: rgba(255, 255, 255, 0.4);
+            --text-main: #1d1d1f;
+            --text-sub: #6e6e73;
+            --accent-color: #34c759;
+            --ring-1: #ff3b30;
+            --ring-2: #34c759;
+            --ring-3: #007aff;
+            --input-bg: rgba(255, 255, 255, 0.4);
+            --menu-bg: rgba(255, 255, 255, 0.85);
+            --hover-bg: rgba(0, 0, 0, 0.05);
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
-        /* Ambient Background (MacOS Wallpaper vibe) */
+        body {
+            font-family: var(--font-family);
+            background-color: #f5f5f7;
+            color: var(--text-main);
+            overflow: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* Ambient Background */
         .ambient-bg {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: 
-                radial-gradient(circle at 0% 0%, rgba(200, 220, 255, 0.4) 0%, transparent 50%),
-                radial-gradient(circle at 100% 0%, rgba(255, 220, 220, 0.4) 0%, transparent 50%),
-                radial-gradient(circle at 100% 100%, rgba(220, 255, 240, 0.4) 0%, transparent 50%),
-                radial-gradient(circle at 0% 100%, rgba(240, 220, 255, 0.4) 0%, transparent 50%);
+            background: var(--bg-gradient);
             z-index: -1;
+            transition: background 1s ease;
         }
 
-        /* The "Apple" Card */
-        .ios-card {
-            background: rgba(255, 255, 255, 0.65);
+        /* Decoration Layer */
+        #decoration-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        /* The Card */
+        .glass-card {
+            background: var(--card-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            border-radius: 24px; /* More rounded */
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
             box-shadow: 
                 0 4px 6px -1px rgba(0, 0, 0, 0.01), 
                 0 10px 15px -3px rgba(0, 0, 0, 0.01),
-                0 0 0 1px rgba(0, 0, 0, 0.02); /* Subtle inner ring */
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+                0 0 0 1px rgba(0, 0, 0, 0.02);
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            z-index: 10; /* Above decorations */
         }
 
-        .ios-card:hover {
-            background: rgba(255, 255, 255, 0.85);
-            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255,255,255,0.5);
-            transform: translateY(-4px); /* Lift effect */
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.15); /* Adaptive hover */
+            transform: translateY(-4px);
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.1);
         }
 
         /* Interactive Elements */
         button {
             transition: all 0.2s ease;
+            outline: none;
         }
-        button:active {
-            transform: scale(0.95);
-        }
+        button:active { transform: scale(0.95); }
 
-        /* Typography tweaks */
+        /* Typography */
         h1, h2, h3 { letter-spacing: -0.02em; }
-        
-        /* Custom Scrollbar - Visible but subtle */
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+        .text-main { color: var(--text-main); transition: color 0.5s ease; }
+        .text-sub { color: var(--text-sub); transition: color 0.5s ease; }
 
+        /* Custom Scrollbar for Menu */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        
         /* Animations */
         @keyframes breathe {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.8; }
         }
         .status-dot-active {
-            box-shadow: 0 0 10px rgba(52, 199, 89, 0.4);
+            box-shadow: 0 0 10px #34c759;
             animation: breathe 3s infinite ease-in-out;
+            background-color: #34c759;
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
         }
 
         .tabular-nums { font-variant-numeric: tabular-nums; }
+        
+        /* Custom Dropdown Styles */
+        .custom-dropdown-btn {
+            background-color: var(--input-bg);
+            border: 1px solid rgba(255,255,255,0.5);
+            color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+        
+        .custom-dropdown-menu {
+            background-color: var(--menu-bg);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.2);
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        /* Ring Chart Container */
+        .ring-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+        }
+        
+        /* Dynamic SVG Coloring */
+        .icon-dynamic {
+            color: var(--text-main);
+            transition: color 0.5s ease;
+        }
+
+        /* RGB Bar Animation for Cyberpunk */
+        @keyframes rainbow-cycle {
+            0% { background-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
+            16% { background-color: #ffff00; box-shadow: 0 0 15px #ffff00; }
+            33% { background-color: #00ff00; box-shadow: 0 0 15px #00ff00; }
+            50% { background-color: #00ffff; box-shadow: 0 0 15px #00ffff; }
+            66% { background-color: #0000ff; box-shadow: 0 0 15px #0000ff; }
+            83% { background-color: #ff00ff; box-shadow: 0 0 15px #ff00ff; }
+            100% { background-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
+        }
+
+        .rgb-bar {
+            background-image: none !important; 
+            animation: rainbow-cycle 2s linear infinite !important;
+            transition: width 1s ease-out !important; 
+        }
+
+        /* Custom Checkbox */
+        .custom-checkbox {
+            appearance: none;
+            background-color: var(--input-bg);
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 1px solid currentColor;
+            border-radius: 0.35em;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        .custom-checkbox::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em var(--accent-color);
+            border-radius: 2px;
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .custom-checkbox:checked::before {
+            transform: scale(1);
+        }
+
+        /* --- DECORATION ANIMATIONS --- */
+        
+        /* Snow / Rain */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) translateX(0px) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translateY(110vh) translateX(20px) rotate(360deg); opacity: 0.3; }
+        }
+        
+        /* Floating Ghosts/Particles */
+        @keyframes float-up {
+            0% { transform: translateY(110vh) translateX(0); opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) translateX(20px); opacity: 0; }
+        }
+
+        /* Twinkling Stars */
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .deco-item {
+            position: absolute;
+            user-select: none;
+        }
+
     </style>
 </head>
-<body class="h-screen flex flex-col p-6 max-w-[1600px] mx-auto">
+<body class="h-screen flex flex-col p-6 max-w-[1600px] mx-auto transition-colors duration-500">
 
-    <div class="ambient-bg"></div>
+    <div class="ambient-bg" id="bg-layer"></div>
+    <div id="decoration-layer"></div>
 
     <!-- Header -->
-    <header class="flex justify-between items-center mb-6 shrink-0 px-2">
+    <header class="flex justify-between items-center mb-6 shrink-0 px-2 relative z-50">
         <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-white/50 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-sm border border-white/50 transition hover:scale-105 cursor-pointer">
-                <svg class="w-6 h-6 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-sm border border-white/30 transition hover:scale-105 cursor-pointer">
+                <svg class="w-6 h-6 icon-dynamic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
             </div>
             <div>
-                <h1 class="text-2xl font-bold text-slate-900">SelfObserver</h1>
+                <h1 class="text-2xl font-bold text-main">SelfObserver</h1>
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-[#34c759] status-dot-active"></span>
-                    <span class="text-xs font-medium text-slate-500">Monitoring Active</span>
+                    <span class="w-2 h-2 rounded-full status-dot-active"></span>
+                    <span class="text-xs font-medium text-sub">Monitoring Active</span>
                 </div>
             </div>
         </div>
-        <div class="bg-white/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/50 shadow-sm flex items-center gap-3 hover:bg-white/60 transition cursor-default">
-            <span id="clock" class="text-sm font-semibold text-slate-700 tabular-nums">00:00:00</span>
-            <span class="text-xs text-slate-400">|</span>
-            <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">California</span>
+        
+        <div class="flex items-center gap-4">
+            <!-- Custom Theme Dropdown -->
+            <div class="relative">
+                <button id="theme-btn" onclick="toggleThemeMenu()" class="custom-dropdown-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm backdrop-blur-md hover:opacity-90">
+                    <span class="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-purple-500"></span>
+                    <span id="current-theme-label">Original</span>
+                    <svg class="w-3 h-3 ml-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+
+                <!-- Dropdown Content -->
+                <div id="theme-menu" class="hidden absolute top-full right-0 mt-2 w-56 custom-dropdown-menu rounded-2xl shadow-2xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+                    <div class="max-h-[60vh] overflow-y-auto custom-scroll py-2">
+                        
+                        <!-- Populated by JS -->
+                        <div id="theme-list-container"></div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 shadow-sm flex items-center gap-3 hover:bg-white/30 transition cursor-default">
+                <span id="clock" class="text-sm font-semibold text-main tabular-nums">00:00:00</span>
+                <span class="text-xs text-main opacity-50">|</span>
+                <span class="text-xs font-medium text-sub uppercase tracking-wide">California</span>
+            </div>
         </div>
     </header>
 
     <!-- Main Grid -->
-    <main class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 min-h-0 pb-2">
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 min-h-0 pb-2 relative z-10">
 
-        <!-- LEFT COLUMN (Stats) -->
+        <!-- LEFT COLUMN (Stats & Rings) -->
         <div class="col-span-1 md:col-span-3 flex flex-col gap-6">
             
             <!-- Focus Card -->
-            <div class="ios-card p-6 flex flex-col justify-between h-48 relative overflow-hidden group cursor-default">
-                <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <svg class="w-24 h-24 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            <div class="glass-card p-6 flex flex-col justify-between h-40 relative overflow-hidden group cursor-default">
+                <div>
+                    <span class="text-xs font-bold text-sub uppercase tracking-wider">Current Focus</span>
+                    <div id="stat-mode" class="text-3xl font-bold text-main mt-1 capitalize tracking-tight">Loading...</div>
                 </div>
                 <div>
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Focus</span>
-                    <div id="stat-mode" class="text-4xl font-bold text-slate-900 mt-1 capitalize tracking-tight">Loading...</div>
-                </div>
-                <div>
-                    <div class="flex justify-between text-xs font-medium text-slate-500 mb-2">
+                    <div class="flex justify-between text-xs font-medium text-sub mb-2">
                         <span>Intensity</span>
                         <span id="stat-conf">0%</span>
                     </div>
-                    <!-- Apple-style progress bar -->
-                    <div class="w-full bg-slate-200/50 h-2 rounded-full overflow-hidden backdrop-blur-sm">
-                        <div id="stat-bar" class="h-full bg-slate-900 rounded-full transition-all duration-1000 ease-out w-0"></div>
+                    <div class="w-full bg-black/10 h-2 rounded-full overflow-hidden backdrop-blur-sm">
+                        <div id="stat-bar" class="h-full rounded-full transition-all duration-1000 ease-out w-0"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- App Card -->
-            <div class="ios-card p-6 flex flex-col justify-center h-40 cursor-default">
-                <div class="flex items-center gap-3 mb-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
-                    </div>
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active App</span>
+            <!-- Daily Goals -->
+            <div class="glass-card p-5 flex flex-col justify-center cursor-default min-h-[140px]">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] font-bold text-sub uppercase tracking-wider">Daily Goals</span>
+                    <span class="text-[10px] font-bold text-accent-color opacity-80">2/3</span>
                 </div>
-                <div id="stat-exe" class="text-lg font-semibold text-slate-900 truncate">...</div>
-                <div id="stat-title" class="text-sm text-slate-500 truncate mt-0.5 opacity-80">Waiting for data...</div>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox" checked>
+                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Clear Email Inbox</span>
+                    </label>
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox" checked>
+                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Push Production Fix</span>
+                    </label>
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox">
+                        <span class="text-xs font-medium text-main group-hover:opacity-80 transition-colors">Review Pull Requests</span>
+                    </label>
+                </div>
             </div>
 
-            <!-- Mini Metrics -->
-            <div class="grid grid-cols-2 gap-4 flex-1">
-                <div class="ios-card p-4 flex flex-col justify-center items-center hover:bg-white transition-colors cursor-default">
-                    <span class="text-3xl font-bold text-slate-900 mb-1">4.2h</span>
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase">Productive</span>
+            <!-- Productivity Rings -->
+            <div class="glass-card p-6 flex flex-col items-center justify-center flex-1 cursor-default relative">
+                <h3 class="absolute top-6 left-6 text-sm font-bold text-main">Activity Rings</h3>
+                <div class="ring-container mt-4">
+                    <canvas id="ringsCanvas" width="140" height="140"></canvas>
                 </div>
-                <div class="ios-card p-4 flex flex-col justify-center items-center hover:bg-white transition-colors cursor-default">
-                    <span class="text-3xl font-bold text-slate-900 mb-1">12</span>
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase">Switches</span>
+                <div class="flex gap-4 mt-6" id="ring-legend">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold text-sub uppercase">Focus</span>
+                        <span class="text-xs font-bold" style="color: var(--ring-1)">4.2h</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold text-sub uppercase">Work</span>
+                        <span class="text-xs font-bold" style="color: var(--ring-2)">6.5h</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold text-sub uppercase">Sys</span>
+                        <span class="text-xs font-bold" style="color: var(--ring-3)">8.1h</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- CENTER COLUMN (Charts) -->
+        <!-- CENTER COLUMN (Charts & Top Apps) -->
         <div class="col-span-1 md:col-span-6 flex flex-col gap-6">
             
             <!-- Line Chart -->
-            <div class="ios-card p-6 flex-[2] flex flex-col min-h-0">
+            <div class="glass-card p-6 flex-[3] flex flex-col min-h-0">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-sm font-bold text-slate-800">Activity Trend</h2>
-                    <div class="bg-slate-100/50 p-0.5 rounded-lg flex text-[10px] font-semibold">
-                        <button class="px-3 py-1 bg-white shadow-sm rounded-md text-slate-900 cursor-pointer">Today</button>
-                        <button class="px-3 py-1 text-slate-400 hover:text-slate-600 cursor-pointer">Week</button>
+                    <h2 class="text-sm font-bold text-main">Activity Trend</h2>
+                    <div class="bg-white/20 backdrop-blur-md p-0.5 rounded-lg flex text-[10px] font-semibold border border-white/20">
+                        <button class="px-3 py-1 bg-white/80 shadow-sm rounded-md text-slate-900 cursor-pointer transition-colors">Today</button>
+                        <button class="px-3 py-1 text-sub hover:text-main cursor-pointer transition-colors">Week</button>
                     </div>
                 </div>
                 <div class="relative w-full flex-1">
@@ -171,24 +351,64 @@
                 </div>
             </div>
 
-            <!-- Pie Chart (Breakdown) -->
-            <div class="ios-card p-6 flex-1 flex flex-col justify-center min-h-0 relative">
-                 <h2 class="text-sm font-bold text-slate-800 absolute top-6 left-6">Distribution</h2>
-                 <div class="flex items-center justify-around h-full">
-                     <div class="h-32 w-32 relative cursor-pointer">
-                         <canvas id="pieChart"></canvas>
-                     </div>
-                     <!-- Legend -->
-                     <div id="pie-legend" class="flex flex-col gap-2 text-xs min-w-[140px]"></div>
-                 </div>
+            <!-- Top Apps -->
+            <div class="glass-card p-6 flex-[2] flex flex-col min-h-0 overflow-hidden">
+                <h2 class="text-sm font-bold text-main mb-4">Top Applications</h2>
+                <div class="flex-1 overflow-y-auto pr-2 space-y-3" id="top-apps-list">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT COLUMN (Logs) -->
-        <div class="col-span-1 md:col-span-3 flex flex-col min-h-0">
-            <div class="ios-card h-full flex flex-col overflow-hidden">
-                <div class="p-5 border-b border-slate-100/50 flex justify-between items-center bg-white/30 backdrop-blur-sm">
-                    <h2 class="text-sm font-bold text-slate-800">Live Feed</h2>
+        <!-- RIGHT COLUMN (System & Logs) -->
+        <div class="col-span-1 md:col-span-3 flex flex-col gap-6 min-h-0">
+            
+            <!-- System Vitals -->
+            <div class="glass-card p-5 h-1/3 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-sm font-bold text-main">System Vitals</h2>
+                    <span class="text-[10px] font-mono text-sub bg-black/5 px-2 py-0.5 rounded">M2 CHIP</span>
+                </div>
+                
+                <!-- CPU -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] font-semibold text-sub">
+                        <span>CPU Load</span>
+                        <span id="cpu-val">12%</span>
+                    </div>
+                    <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
+                        <div id="cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: 12%"></div>
+                    </div>
+                </div>
+
+                <!-- RAM -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] font-semibold text-sub">
+                        <span>Memory</span>
+                        <span id="ram-val">8.4 GB</span>
+                    </div>
+                    <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
+                        <div id="ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: 45%"></div>
+                    </div>
+                </div>
+
+                <!-- NET -->
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <div class="bg-white/30 rounded-lg p-2 flex flex-col items-center">
+                        <span class="text-[9px] font-bold text-sub uppercase">Download</span>
+                        <span class="text-xs font-bold text-main">45 MB/s</span>
+                    </div>
+                    <div class="bg-white/30 rounded-lg p-2 flex flex-col items-center">
+                        <span class="text-[9px] font-bold text-sub uppercase">Upload</span>
+                        <span class="text-xs font-bold text-main">12 MB/s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Feed -->
+            <div class="glass-card flex-1 flex flex-col overflow-hidden">
+                <div class="p-5 border-b border-white/20 flex justify-between items-center bg-white/10 backdrop-blur-sm">
+                    <h2 class="text-sm font-bold text-main">Live Feed</h2>
                     <div class="flex gap-1">
                         <span class="w-2 h-2 rounded-full bg-red-400 cursor-pointer hover:bg-red-500 transition-colors"></span>
                         <span class="w-2 h-2 rounded-full bg-yellow-400 cursor-pointer hover:bg-yellow-500 transition-colors"></span>
@@ -209,237 +429,606 @@
 
     <script>
         // CONFIG
-        // Disable demo mode so the dashboard reflects real activity instead of random mock data
-        const DEMO_MODE = false; 
+        const DEMO_MODE = false;
 
-        // --- UTILS ---
-        let pieChart = null;
-        let lineChart = null;
-
-        // Apple-inspired Palette
-        const PALETTE = {
-            coding: "#1d1d1f",    // Black
-            browsing: "#86868b",  // Gray
-            gaming: "#ff3b30",    // Red
-            chatting: "#ff9500",  // Orange
-            video: "#5856d6",     // Purple
-            idle: "#e5e5ea",      // Light Gray
-            default: "#8e8e93"
+        // --- THEMES ---
+        const THEMES = {
+            apple: {
+                name: 'Original',
+                bg: 'radial-gradient(circle at 0% 0%, rgba(200, 220, 255, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(255, 220, 220, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(220, 255, 240, 0.4) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(240, 220, 255, 0.4) 0%, transparent 50%)',
+                main: '#1d1d1f', sub: '#6e6e73', accent: '#34c759',
+                r1: '#ff3b30', r2: '#34c759', r3: '#007aff',
+                card: 'rgba(255, 255, 255, 0.65)', border: 'rgba(255, 255, 255, 0.4)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.85)', hover: 'rgba(0,0,0,0.05)'
+            },
+            midnight: {
+                name: 'Midnight 🌑',
+                bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)',
+                main: '#e2e8f0', sub: '#94a3b8', accent: '#38bdf8',
+                r1: '#38bdf8', r2: '#818cf8', r3: '#c084fc',
+                card: 'rgba(30, 41, 59, 0.7)', border: 'rgba(255, 255, 255, 0.1)',
+                input: 'rgba(0, 0, 0, 0.4)', menu: 'rgba(30, 41, 59, 0.95)', hover: 'rgba(255,255,255,0.1)'
+            },
+            cyberpunk: {
+                name: 'Cyberpunk 🤖',
+                bg: 'linear-gradient(to bottom, #000000, #434343)',
+                main: '#00ff9f', sub: '#d600ff', accent: '#f6ff00',
+                r1: '#00e5ff', r2: '#d600ff', r3: '#f6ff00',
+                card: 'rgba(10, 10, 10, 0.8)', border: 'rgba(0, 255, 159, 0.3)',
+                input: 'rgba(0, 0, 0, 0.6)', menu: 'rgba(20, 20, 20, 0.95)', hover: 'rgba(0, 255, 159, 0.2)'
+            },
+            forest: {
+                name: 'Forest 🌲',
+                bg: 'linear-gradient(to right, #134e5e, #71b280)',
+                main: '#ecfdf5', sub: '#a7f3d0', accent: '#f59e0b',
+                r1: '#10b981', r2: '#f59e0b', r3: '#8b5cf6',
+                card: 'rgba(6, 78, 59, 0.6)', border: 'rgba(255, 255, 255, 0.15)',
+                input: 'rgba(0, 0, 0, 0.2)', menu: 'rgba(6, 78, 59, 0.9)', hover: 'rgba(255,255,255,0.1)'
+            },
+            ocean: {
+                name: 'Ocean 🌊',
+                bg: 'linear-gradient(to bottom, #1a2980, #26d0ce)',
+                main: '#f0f9ff', sub: '#b3e5fc', accent: '#00e5ff',
+                r1: '#00bcd4', r2: '#4dd0e1', r3: '#80deea',
+                card: 'rgba(20, 40, 60, 0.6)', border: 'rgba(0, 229, 255, 0.2)',
+                input: 'rgba(0, 0, 0, 0.3)', menu: 'rgba(20, 40, 60, 0.9)', hover: 'rgba(255,255,255,0.1)'
+            },
+            sunset: {
+                name: 'Sunset 🌅',
+                bg: 'linear-gradient(to right, #ffecd2 0%, #fcb69f 100%)',
+                main: '#5d4037', sub: '#8d6e63', accent: '#ff6f00',
+                r1: '#ff9f43', r2: '#ff6b6b', r3: '#54a0ff',
+                card: 'rgba(255, 255, 255, 0.5)', border: 'rgba(255, 255, 255, 0.6)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            coffee: {
+                name: 'Coffee ☕',
+                bg: 'linear-gradient(to top, #eacda3 0%, #d6ae7b 100%)',
+                main: '#3e2723', sub: '#5d4037', accent: '#8d6e63',
+                r1: '#795548', r2: '#a1887f', r3: '#d7ccc8',
+                card: 'rgba(255, 250, 240, 0.7)', border: 'rgba(121, 85, 72, 0.2)',
+                input: 'rgba(255, 255, 255, 0.5)', menu: 'rgba(255, 248, 240, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            lavender: {
+                name: 'Lavender 💜',
+                bg: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
+                main: '#4a148c', sub: '#7b1fa2', accent: '#aa00ff',
+                r1: '#9c27b0', r2: '#ba68c8', r3: '#e1bee7',
+                card: 'rgba(255, 255, 255, 0.5)', border: 'rgba(255, 255, 255, 0.8)',
+                input: 'rgba(255, 255, 255, 0.5)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            candy: {
+                name: 'Candy 🍬',
+                bg: 'linear-gradient(135deg, #ffc3a0 0%, #ffafbd 100%)',
+                main: '#5e3a48', sub: '#916b7a', accent: '#ff6b6b',
+                r1: '#ff9a9e', r2: '#a18cd1', r3: '#fbc2eb',
+                card: 'rgba(255, 255, 255, 0.5)', border: 'rgba(255, 255, 255, 0.6)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            barbie: {
+                name: 'Barbie 💅',
+                bg: 'linear-gradient(45deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)',
+                main: '#d63384', sub: '#e685b5', accent: '#e83e8c',
+                r1: '#ff007f', r2: '#ff69b4', r3: '#ffc0cb',
+                card: 'rgba(255, 255, 255, 0.7)', border: 'rgba(255, 255, 255, 0.8)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            christmas: {
+                name: 'Christmas 🎄',
+                bg: 'radial-gradient(circle at 0% 0%, rgba(210, 40, 40, 0.25) 0%, transparent 60%), radial-gradient(circle at 100% 100%, rgba(30, 100, 50, 0.25) 0%, transparent 60%), #fffaf0',
+                main: '#1a4c30', sub: '#5c7c60', accent: '#d42426',
+                r1: '#d42426', r2: '#2ecc71', r3: '#f1c40f',
+                card: 'rgba(255, 255, 255, 0.85)', border: 'rgba(212, 36, 38, 0.1)',
+                input: 'rgba(255, 255, 255, 0.6)', menu: 'rgba(255, 255, 255, 0.95)', hover: 'rgba(0,0,0,0.05)'
+            },
+            halloween: {
+                name: 'Halloween 🎃',
+                bg: 'linear-gradient(to bottom right, #240b36, #c31432)',
+                main: '#fcd5ce', sub: '#e0aaff', accent: '#ff9e00',
+                r1: '#ff9e00', r2: '#9d4edd', r3: '#70e000',
+                card: 'rgba(20, 10, 30, 0.6)', border: 'rgba(255, 158, 0, 0.2)',
+                input: 'rgba(0, 0, 0, 0.3)', menu: 'rgba(20, 10, 30, 0.9)', hover: 'rgba(255,255,255,0.1)'
+            },
+            winter: {
+                name: 'Winter ❄️',
+                bg: 'linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%)',
+                main: '#2c3e50', sub: '#7f8c8d', accent: '#3498db',
+                r1: '#3498db', r2: '#a8d0e6', r3: '#d6eaf8',
+                card: 'rgba(255, 255, 255, 0.6)', border: 'rgba(255, 255, 255, 0.8)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            summer: {
+                name: 'Summer ☀️',
+                bg: 'linear-gradient(120deg, #f6d365 0%, #fda085 100%)',
+                main: '#e65100', sub: '#fb8c00', accent: '#ff6f00',
+                r1: '#ff6f00', r2: '#ffca28', r3: '#4fc3f7',
+                card: 'rgba(255, 255, 255, 0.6)', border: 'rgba(255, 255, 255, 0.6)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            },
+            galaxy: {
+                name: 'Galaxy 🌌',
+                bg: 'linear-gradient(to bottom, #000428, #004e92)',
+                main: '#ffffff', sub: '#a0c4ff', accent: '#bc13fe',
+                r1: '#bc13fe', r2: '#4facfe', r3: '#00f2fe',
+                card: 'rgba(20, 20, 40, 0.6)', border: 'rgba(100, 200, 255, 0.2)',
+                input: 'rgba(0, 0, 0, 0.4)', menu: 'rgba(10, 10, 30, 0.95)', hover: 'rgba(255, 255, 255, 0.1)'
+            },
+            terminal: {
+                name: 'Terminal 📟',
+                bg: 'linear-gradient(to bottom, #000000, #111111)',
+                main: '#00ff00', sub: '#008f11', accent: '#00ff00',
+                r1: '#00ff00', r2: '#00cc00', r3: '#008000',
+                card: 'rgba(0, 20, 0, 0.8)', border: 'rgba(0, 255, 0, 0.4)',
+                input: 'rgba(0, 20, 0, 0.8)', menu: 'rgba(0, 15, 0, 0.95)', hover: 'rgba(0, 255, 0, 0.1)'
+            },
+            desert: {
+                name: 'Desert 🌵',
+                bg: 'linear-gradient(to top, #e65c00, #F9D423)',
+                main: '#4e342e', sub: '#795548', accent: '#bf360c',
+                r1: '#d84315', r2: '#fb8c00', r3: '#fdd835',
+                card: 'rgba(255, 245, 230, 0.6)', border: 'rgba(255, 200, 150, 0.5)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 248, 240, 0.9)', hover: 'rgba(0,0,0,0.05)'
+            }
         };
 
-        function getColor(mode) {
-            return PALETTE[mode?.toLowerCase()] || PALETTE.default;
+        const THEME_GROUPS = [
+            { label: "Essentials", items: ["apple"] },
+            { label: "Dark Mode", items: ["midnight", "cyberpunk", "galaxy", "terminal"] },
+            { label: "Nature", items: ["forest", "ocean", "sunset", "desert"] },
+            { label: "Aesthetic", items: ["coffee", "lavender", "candy", "barbie"] },
+            { label: "Seasonal", items: ["christmas", "halloween", "winter", "summer"] },
+        ];
+
+        function initThemeMenu() {
+            const container = document.getElementById("theme-list-container");
+            if (!container) return;
+            
+            let html = "";
+            THEME_GROUPS.forEach(group => {
+                html += `<div class="px-4 py-1 mt-2 text-[10px] font-bold text-sub uppercase tracking-wider opacity-70">${group.label}</div>`;
+                group.items.forEach(key => {
+                    const t = THEMES[key];
+                    if (!t) return;
+                    html += `
+                        <div onclick="changeTheme('${key}')" class="dropdown-item flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors">
+                            <div class="w-4 h-4 rounded-full shadow-sm ring-1 ring-black/10" style="background: ${t.bg}"></div>
+                            <span class="text-xs font-medium text-main">${t.name}</span>
+                        </div>
+                    `;
+                });
+            });
+            container.innerHTML = html;
+        }
+
+        function toggleThemeMenu() {
+            const menu = document.getElementById("theme-menu");
+            menu.classList.toggle("hidden");
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener("click", function(e) {
+            const menu = document.getElementById("theme-menu");
+            const btn = document.getElementById("theme-btn");
+            if (!menu.classList.contains("hidden") && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add("hidden");
+            }
+        });
+
+        function changeTheme(themeName) {
+            const t = THEMES[themeName] || THEMES.apple;
+            const root = document.documentElement;
+            
+            root.style.setProperty('--bg-gradient', t.bg);
+            root.style.setProperty('--text-main', t.main);
+            root.style.setProperty('--text-sub', t.sub);
+            root.style.setProperty('--accent-color', t.accent);
+            root.style.setProperty('--ring-1', t.r1);
+            root.style.setProperty('--ring-2', t.r2);
+            root.style.setProperty('--ring-3', t.r3);
+            root.style.setProperty('--card-bg', t.card);
+            root.style.setProperty('--card-border', t.border);
+            root.style.setProperty('--input-bg', t.input);
+            root.style.setProperty('--menu-bg', t.menu || 'rgba(255, 255, 255, 0.85)');
+            root.style.setProperty('--hover-bg', t.hover || 'rgba(0,0,0,0.05)');
+
+            // Handle RGB Mode for Cyberpunk
+            const bar = document.getElementById('stat-bar');
+            if (bar) {
+                if (themeName === 'cyberpunk') {
+                    bar.classList.add('rgb-bar');
+                } else {
+                    bar.classList.remove('rgb-bar');
+                }
+            }
+            
+            // Handle Decorations
+            updateDecorations(themeName);
+            
+            // Update Label text
+            document.getElementById("current-theme-label").innerText = t.name.split(" ")[0]; // Just the name, no emoji
+            
+            // Close menu
+            document.getElementById("theme-menu").classList.add("hidden");
+
+            // Re-render rings to pick up new colors
+            drawRings();
+            // Re-render chart to pick up text/line colors
+            if (lineChart) updateLine(lineTimelineData); 
+            // Re-render apps to fix background boxes color
+            renderTopApps(latestEntries);
+        }
+
+        // --- DECORATION LOGIC ---
+        function updateDecorations(theme) {
+            const layer = document.getElementById('decoration-layer');
+            if (!layer) return;
+            layer.innerHTML = ''; // Clear previous
+
+            // 1. Christmas / Winter -> Snow
+            if (theme === 'christmas' || theme === 'winter') {
+                for (let i = 0; i < 50; i++) {
+                    const el = document.createElement('div');
+                    el.classList.add('deco-item');
+                    el.innerHTML = '❄️';
+                    el.style.left = Math.random() * 100 + 'vw';
+                    el.style.fontSize = Math.random() * 10 + 10 + 'px';
+                    el.style.opacity = Math.random() * 0.5 + 0.3;
+                    el.style.animation = `fall ${Math.random() * 5 + 5}s linear infinite`;
+                    el.style.animationDelay = Math.random() * 5 + 's';
+                    layer.appendChild(el);
+                }
+            }
+
+            // 2. Halloween -> Ghosts / Bats
+            if (theme === 'halloween') {
+                for (let i = 0; i < 15; i++) {
+                    const el = document.createElement('div');
+                    el.classList.add('deco-item');
+                    el.innerHTML = Math.random() > 0.5 ? '👻' : '🦇';
+                    el.style.left = Math.random() * 90 + 5 + 'vw';
+                    el.style.fontSize = Math.random() * 20 + 20 + 'px';
+                    el.style.animation = `float-up ${Math.random() * 10 + 10}s ease-in-out infinite`;
+                    el.style.animationDelay = Math.random() * 5 + 's';
+                    layer.appendChild(el);
+                }
+            }
+
+            // 3. Galaxy -> Stars
+            if (theme === 'galaxy') {
+                 for (let i = 0; i < 60; i++) {
+                    const el = document.createElement('div');
+                    el.classList.add('deco-item');
+                    el.innerHTML = '✨'; // or ★
+                    el.style.left = Math.random() * 100 + 'vw';
+                    el.style.top = Math.random() * 100 + 'vh';
+                    el.style.fontSize = Math.random() * 10 + 5 + 'px';
+                    el.style.color = '#fff';
+                    el.style.animation = `twinkle ${Math.random() * 3 + 1}s ease-in-out infinite`;
+                    layer.appendChild(el);
+                }
+            }
+
+             // 4. Cyberpunk / Terminal -> Glitch Rain
+             if (theme === 'cyberpunk' || theme === 'terminal') {
+                 for (let i = 0; i < 30; i++) {
+                    const el = document.createElement('div');
+                    el.classList.add('deco-item');
+                    el.innerText = Math.random() > 0.5 ? '1' : '0';
+                    el.style.left = Math.random() * 100 + 'vw';
+                    el.style.color = '#0f0';
+                    el.style.fontFamily = 'monospace';
+                    el.style.fontSize = Math.random() * 12 + 10 + 'px';
+                    el.style.animation = `fall ${Math.random() * 2 + 1}s linear infinite`;
+                    el.style.animationDelay = Math.random() * 2 + 's';
+                    layer.appendChild(el);
+                }
+            }
+
+            // 5. Forest -> Fireflies
+            if (theme === 'forest') {
+                 for (let i = 0; i < 20; i++) {
+                    const el = document.createElement('div');
+                    el.classList.add('deco-item');
+                    el.style.width = '6px';
+                    el.style.height = '6px';
+                    el.style.background = '#a7f3d0';
+                    el.style.borderRadius = '50%';
+                    el.style.left = Math.random() * 100 + 'vw';
+                    el.style.boxShadow = '0 0 10px #a7f3d0';
+                    el.style.animation = `float-up ${Math.random() * 15 + 10}s ease-in-out infinite`;
+                    el.style.animationDelay = Math.random() * 5 + 's';
+                    layer.appendChild(el);
+                }
+            }
+        }
+
+        // --- RINGS ---
+        let ringSegments = [
+            { label: 'Focus', percent: 0.75, colorVar: '--ring-1', valueText: '4.2h' },
+            { label: 'Work', percent: 0.55, colorVar: '--ring-2', valueText: '6.5h' },
+            { label: 'Sys', percent: 0.85, colorVar: '--ring-3', valueText: '8.1h' },
+        ];
+
+        function drawRings() {
+            const canvas = document.getElementById('ringsCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const center = w / 2;
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            // Get Colors from CSS Vars
+            const styles = getComputedStyle(document.documentElement);
+
+            const rings = ringSegments;
+            const radii = [55, 40, 25];
+
+            rings.forEach((ring, idx) => {
+                const color = styles.getPropertyValue(ring.colorVar).trim();
+                const r = radii[idx];
+
+                // Track Background
+                ctx.beginPath();
+                ctx.arc(center, center, r, 0, 2 * Math.PI);
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = 0.2;
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Foreground
+                ctx.globalAlpha = 1.0;
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.arc(center, center, r, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * Math.min(Math.max(ring.percent, 0), 1)));
+                ctx.stroke();
+            });
+
+            // Update legend
+            const legend = document.getElementById('ring-legend');
+            if (legend) {
+                legend.innerHTML = rings.map((ring, idx) => {
+                    const color = styles.getPropertyValue(ring.colorVar).trim();
+                    return `
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-sub uppercase">${ring.label}</span>
+                            <span class="text-xs font-bold" style="color: ${color}">${ring.valueText}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // --- UTILS ---
+        let lineChart = null;
+        let lineTimelineData = [];
+        let latestEntries = [];
+
+        function getMockTopApps() {
+            return [
+                { name: "Visual Studio Code", cat: "Coding", percent: 0.8, time: "4h 20m", color: "bg-blue-500" },
+                { name: "Google Chrome", cat: "Browsing", percent: 0.4, time: "2h 10m", color: "bg-yellow-500" },
+                { name: "Slack", cat: "Chat", percent: 0.2, time: "45m", color: "bg-purple-500" },
+                { name: "Terminal", cat: "System", percent: 0.15, time: "30m", color: "bg-slate-700" },
+                { name: "Spotify", cat: "Media", percent: 0.1, time: "15m", color: "bg-green-500" }
+            ];
         }
 
         function formatMinutesFriendly(minutes) {
             const value = minutes || 0;
             if (value >= 60) return (value / 60).toFixed(1) + "h";
-            return Math.round(value) + "m";
+            return Math.max(1, Math.round(value)) + "m";
         }
 
-        // --- UPDATERS ---
-
-        function getMockData(endpoint) {
-            if (endpoint === "/api/stats/day") {
-                // Return a stable mock so visuals are consistent when demoing without telemetry
-                return { "coding": 240, "browsing": 120, "chatting": 45, "idle": 30 };
-            }
-            if (endpoint === "/api/latest") {
-                return [];
-            }
-            if (endpoint === "/api/stats/hour") {
-                return [];
-            }
-            return null;
+        function toLocaleTime(ts) {
+            const d = ts instanceof Date ? ts : new Date(ts);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-        async function fetchData(endpoint) {
-            if (DEMO_MODE) return getMockData(endpoint);
+        function buildTopApps(data) {
+            if (!data || !data.length) return getMockTopApps();
+            const counts = new Map();
+            data.forEach(item => {
+                const key = item.exe || 'Unknown';
+                counts.set(key, (counts.get(key) || 0) + 1);
+            });
+            const total = Array.from(counts.values()).reduce((a, b) => a + b, 0) || 1;
+            const colorPool = ['bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-slate-700', 'bg-green-500', 'bg-orange-500'];
+            return Array.from(counts.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([name, count], idx) => ({
+                    name,
+                    cat: '',
+                    percent: count / total,
+                    time: `${count} log${count === 1 ? '' : 's'}`,
+                    color: colorPool[idx % colorPool.length]
+                }));
+        }
+
+        function renderTopApps(data) {
+            const container = document.getElementById('top-apps-list');
+            if (!container) return;
+            const apps = buildTopApps(data);
+            container.innerHTML = apps.map(app => `
+                <div class="flex items-center gap-3 group">
+                    <div class="w-8 h-8 rounded-lg ${app.color} flex items-center justify-center text-white shadow-sm text-xs font-bold">
+                        ${app.name.charAt(0)}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-semibold text-main truncate" title="${app.name}">${app.name}</span>
+                            <span class="text-[10px] font-medium text-sub">${app.time}</span>
+                        </div>
+                        <div class="w-full bg-slate-400/20 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full ${app.color} rounded-full" style="width: ${Math.min(app.percent * 100, 100)}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getMockLatest() {
+            const now = new Date();
+            return Array.from({ length: 10 }, (_, idx) => {
+                const ts = new Date(now.getTime() - idx * 60 * 1000);
+                return {
+                    ts: ts.toISOString(),
+                    ts_display: toLocaleTime(ts),
+                    exe: idx % 2 === 0 ? 'code.exe' : 'chrome.exe',
+                    title: idx % 2 === 0 ? 'Editing SelfObserver' : 'Reading docs',
+                    mode: idx % 2 === 0 ? 'coding' : 'browsing',
+                    confidence: 0.9
+                };
+            });
+        }
+
+        function getMockStatsDay() {
+            return { coding: 240, browsing: 120, chatting: 45, idle: 30 };
+        }
+
+        function getMockStatsHour() {
+            const now = Date.now();
+            return Array.from({ length: 12 }, (_, idx) => ({
+                ts: new Date(now - idx * 5 * 60 * 1000).toISOString(),
+                mode: idx % 2 === 0 ? 'coding' : 'browsing'
+            }));
+        }
+
+        async function fetchData(endpoint, fallback) {
+            if (DEMO_MODE) return fallback();
             try {
                 const res = await fetch(endpoint);
                 return await res.json();
             } catch (e) {
                 console.error("API Error", e);
-                return endpoint === "/api/latest" ? [] : {};
+                return fallback();
             }
         }
 
-        async function updateDashboard() {
-            const latestData = await fetchData("/api/latest");
-            const statsData = await fetchData("/api/stats/day");
-            const hourlyData = await fetchData("/api/stats/hour");
+        function updateRingData(stats) {
+            const entries = Object.entries(stats || {});
+            if (!entries.length) return;
+            entries.sort((a, b) => b[1] - a[1]);
+            const total = entries.reduce((sum, [, v]) => sum + v, 0) || 1;
+            const labels = ['Focus', 'Work', 'Sys'];
+            ringSegments = entries.slice(0, 3).map(([mode, minutes], idx) => ({
+                label: labels[idx] || mode,
+                percent: minutes / total,
+                colorVar: [`--ring-1`, `--ring-2`, `--ring-3`][idx] || '--ring-1',
+                valueText: formatMinutesFriendly(minutes)
+            }));
+            drawRings();
+        }
 
-            if (!latestData || !latestData.length) return;
+        async function updateDashboard() {
+            const latestData = await fetchData("/api/latest", getMockLatest);
+            const statsDay = await fetchData("/api/stats/day", getMockStatsDay);
+            const statsHour = await fetchData("/api/stats/hour", getMockStatsHour);
+
+            latestEntries = Array.isArray(latestData) ? latestData : [];
+            if (!latestEntries.length) return;
 
             // 1. Update Hero Stats
-            const current = latestData[0];
+            const current = latestEntries[0];
             const modeEl = document.getElementById("stat-mode");
-            const exeEl = document.getElementById("stat-exe");
-            const titleEl = document.getElementById("stat-title");
-            
-            // Only update DOM text if changed to prevent selection flickering
-            if (modeEl && modeEl.innerText !== current.mode) modeEl.innerText = current.mode;
-            if (exeEl && exeEl.innerText !== current.exe) exeEl.innerText = current.exe;
-            if (titleEl && titleEl.innerText !== current.title) titleEl.innerText = current.title;
-            
             const confEl = document.getElementById("stat-conf");
-            if (confEl) confEl.innerText = (current.confidence * 100).toFixed(0) + "%";
-            
-            // Update bar width
-            const bar = document.getElementById("stat-bar");
-            if (bar) {
-                bar.style.width = (current.confidence * 100) + "%";
-                bar.style.backgroundColor = getColor(current.mode);
+            const barEl = document.getElementById("stat-bar");
+
+            if (modeEl) modeEl.innerText = current.mode || 'Unknown';
+            if (confEl) confEl.innerText = ((current.confidence || 0) * 100).toFixed(0) + "%";
+            if (barEl) {
+                barEl.style.width = ((current.confidence || 0) * 100) + "%";
+                if (!barEl.classList.contains('rgb-bar')) {
+                    barEl.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
+                }
             }
 
             // 2. Update Log Table
             const tbody = document.getElementById("log-body");
             if (tbody) {
                 tbody.innerHTML = "";
-                latestData.forEach(d => {
+                latestEntries.forEach(d => {
+                    const tsDisplay = d.ts_display || toLocaleTime(d.ts);
                     const row = `
-                    <tr class="hover:bg-white/40 transition-colors rounded-lg group cursor-default">
-                        <td class="py-2.5 px-3 text-[10px] font-medium text-slate-400 tabular-nums w-14 align-top pt-3">${d.ts_display || d.ts}</td>
+                    <tr class="hover:bg-white/10 transition-colors rounded-lg group animate-[fadeIn_0.5s_ease-in-out]">
+                        <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${tsDisplay}</td>
                         <td class="py-2 px-1">
                             <div class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${getColor(d.mode)}"></span>
-                                <div class="flex flex-col min-w-0">
-                                    <span class="text-xs font-semibold text-slate-700 truncate">${d.exe}</span>
-                                    <span class="text-[10px] text-slate-500 truncate max-w-[140px] opacity-70">${d.title}</span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                <div class="flex flex-col">
+                                    <span class="text-xs font-semibold text-main truncate">${d.exe || 'Unknown'}</span>
+                                    <span class="text-[10px] text-sub truncate max-w-[180px] opacity-80">${d.title || ''}</span>
                                 </div>
                             </div>
                         </td>
                     </tr>`;
-                    tbody.innerHTML += row;
+                    tbody.insertAdjacentHTML('beforeend', row);
                 });
             }
 
-            // 3. Update Pie Chart (Smoothly)
-            updatePie(statsData);
+            // 3. Update pie/ring data
+            updateRingData(statsDay);
 
-            // 4. Update Line Chart (Smoothly)
-            updateLine(hourlyData);
-        }
+            // 4. Update Line Chart
+            const timeline = Array.isArray(statsHour) ? statsHour : [];
+            const grouped = new Map();
+            const now = new Date();
+            timeline.forEach(item => {
+                const ts = new Date(item.ts);
+                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
+                if (minutesAgo >= 0 && minutesAgo < 6) {
+                    const key = 5 - minutesAgo;
+                    grouped.set(key, (grouped.get(key) || 0) + 1);
+                }
+            });
+            lineTimelineData = Array.from({ length: 6 }, (_, idx) => ({
+                ts: new Date(now.getTime() - (5 - idx) * 10 * 60000),
+                val: grouped.get(idx) || 0
+            }));
+            updateLine(lineTimelineData);
 
-        // Common Tooltip Options for iOS feel
-        const iosTooltip = {
-            enabled: true,
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            titleColor: '#1d1d1f',
-            bodyColor: '#1d1d1f',
-            borderColor: 'rgba(0,0,0,0.05)',
-            borderWidth: 1,
-            padding: 12,
-            cornerRadius: 12,
-            displayColors: true,
-            titleFont: { family: 'Inter', size: 13, weight: '600' },
-            bodyFont: { family: 'Inter', size: 12 },
-            boxPadding: 4
-        };
+            // 5. Update Top Apps
+            renderTopApps(latestEntries);
 
-        function renderPieLegend(labels, values, hasData) {
-            const legend = document.getElementById("pie-legend");
-            if (!legend) return;
-
-            if (!hasData) {
-                legend.innerHTML = '<div class="text-[11px] font-semibold text-slate-400">No data available</div>';
-                return;
+            // 6. Update System Vitals (mocked)
+            const cpu = Math.floor(Math.random() * 30) + 5;
+            const ram = (Math.random() * 2 + 8).toFixed(1);
+            const cpuBar = document.getElementById('cpu-bar');
+            const ramBar = document.getElementById('ram-bar');
+            if (cpuBar) {
+                document.getElementById('cpu-val').innerText = cpu + "%";
+                cpuBar.style.width = cpu + "%";
             }
-
-            legend.innerHTML = labels.map((label, idx) => {
-                const color = getColor(label);
-                const value = values[idx];
-                return `
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span>
-                            <span class="text-slate-600 font-medium">${label}</span>
-                        </div>
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase">${formatMinutesFriendly(value)}</span>
-                    </div>
-                `;
-            }).join("");
-        }
-
-        function updatePie(data) {
-            const canvas = document.getElementById("pieChart");
-            if (!canvas) return;
-            const ctx = canvas.getContext("2d");
-            const labels = Object.keys(data || {});
-            const values = Object.values(data || {});
-            const hasData = labels.length > 0;
-            const displayLabels = hasData ? labels : ["No Data"];
-            const displayValues = hasData ? values : [1];
-            const colors = displayLabels.map(l => hasData ? getColor(l) : "#e5e7eb");
-
-            if (pieChart) {
-                pieChart.data.labels = displayLabels;
-                pieChart.data.datasets[0].data = displayValues;
-                pieChart.data.datasets[0].backgroundColor = colors;
-                pieChart.update();
-            } else {
-                pieChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: displayLabels,
-                        datasets: [{
-                            data: displayValues,
-                            backgroundColor: colors,
-                            borderWidth: 0,
-                            hoverOffset: 15
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '80%',
-                        animation: {
-                            animateScale: true,
-                            animateRotate: true
-                        },
-                        plugins: { 
-                            legend: { display: false }, 
-                            tooltip: iosTooltip 
-                        },
-                        layout: { padding: 10 }
-                    }
-                });
+            if (ramBar) {
+                document.getElementById('ram-val').innerText = ram + " GB";
+                ramBar.style.width = ((ram / 16) * 100) + "%";
             }
-
-            renderPieLegend(displayLabels, displayValues, hasData);
         }
 
         function updateLine(data) {
             const canvas = document.getElementById("lineChart");
             if (!canvas) return;
             const ctx = canvas.getContext("2d");
-            const timeline = Array.isArray(data) ? data : [];
+            
+            const labels = data.map(d => toLocaleTime(d.ts));
+            const values = data.map(d => d.val);
 
-            // Group entries into 10-minute buckets over the last hour
-            const bucketed = new Map();
-            const now = new Date();
-            timeline.forEach(item => {
-                const ts = new Date(item.ts);
-                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
-                if (minutesAgo >= 0 && minutesAgo < 6) {
-                    const key = 5 - minutesAgo; // reverse so oldest first
-                    bucketed.set(key, (bucketed.get(key) || 0) + 1);
-                }
-            });
-
-            const labels = Array.from({ length: 6 }, (_, idx) => {
-                const t = new Date(now.getTime() - (5 - idx) * 10 * 60000);
-                return t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            });
-
-            const newData = labels.map((_, idx) => bucketed.get(idx) || 0);
-
+            // Get Theme Colors
+            const styles = getComputedStyle(document.documentElement);
+            const mainColor = styles.getPropertyValue('--text-main').trim();
+            
             if (lineChart) {
-                lineChart.data.datasets[0].data = newData;
-                lineChart.update('none'); 
+                lineChart.data.labels = labels;
+                lineChart.data.datasets[0].data = values;
+                lineChart.data.datasets[0].borderColor = mainColor;
+                lineChart.data.datasets[0].pointBorderColor = mainColor;
+                lineChart.update('none');
             } else {
-                // Gradient for line chart fill
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
                 gradient.addColorStop(0, 'rgba(0,0,0,0.1)');
                 gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
@@ -448,16 +1037,16 @@
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Productivity',
-                            data: newData,
-                            borderColor: '#1d1d1f',
+                            label: 'Focus',
+                            data: values,
+                            borderColor: mainColor,
                             backgroundColor: gradient,
                             borderWidth: 2,
-                            tension: 0.4, 
+                            tension: 0.4,
                             pointRadius: 0,
                             pointHoverRadius: 6,
                             pointBackgroundColor: '#fff',
-                            pointBorderColor: '#1d1d1f',
+                            pointBorderColor: mainColor,
                             pointBorderWidth: 2,
                             fill: true
                         }]
@@ -465,17 +1054,11 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
-                        plugins: { 
-                            legend: { display: false },
-                            tooltip: iosTooltip
-                        },
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { display: false } },
                         scales: {
                             x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: '#86868b' } },
-                            y: { grid: { color: 'rgba(0,0,0,0.05)', borderDash: [5, 5] }, ticks: { display: false }, border: { display: false } }
+                            y: { display: false }
                         }
                     }
                 });
@@ -490,9 +1073,21 @@
 
         // Init
         window.addEventListener('load', () => {
+            initThemeMenu(); // Build the new menu
+            drawRings();
+            renderTopApps();
             updateDashboard();
-            // Faster interval to show off the smooth chart updates
-            setInterval(updateDashboard, 2000);
+            setInterval(updateDashboard, 3000);
+            
+            // Add Fade In Animation
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `;
+            document.head.appendChild(style);
         });
 
     </script>
