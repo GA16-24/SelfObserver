@@ -299,7 +299,7 @@
                 latestData.forEach(d => {
                     const row = `
                     <tr class="hover:bg-white/40 transition-colors rounded-lg group cursor-default">
-                        <td class="py-2.5 px-3 text-[10px] font-medium text-slate-400 tabular-nums w-14 align-top pt-3">${d.ts}</td>
+                        <td class="py-2.5 px-3 text-[10px] font-medium text-slate-400 tabular-nums w-14 align-top pt-3">${d.ts_display || d.ts}</td>
                         <td class="py-2 px-1">
                             <div class="flex items-center gap-2">
                                 <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${getColor(d.mode)}"></span>

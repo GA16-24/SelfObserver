@@ -78,7 +78,22 @@ def read_logs():
 @app.route("/api/latest")
 def api_latest():
     logs = read_logs()
-    return jsonify(logs[-50:])
+    recent = logs[-50:]
+
+    # Ensure newest entry is first so the UI hero card shows the current window
+    try:
+        recent.sort(key=lambda e: datetime.datetime.fromisoformat(e["ts"]), reverse=True)
+    except Exception:
+        recent.reverse()
+
+    for entry in recent:
+        try:
+            ts = datetime.datetime.fromisoformat(entry["ts"])
+            entry["ts_display"] = ts.strftime("%H:%M")
+        except Exception:
+            entry["ts_display"] = entry.get("ts")
+
+    return jsonify(recent)
 
 # ---------------------------------------------
 # API: today's category durations
@@ -110,7 +125,10 @@ def api_stats_day():
         delta = (datetime.datetime.now() - last_ts).total_seconds()
         durations[last_mode] = durations.get(last_mode, 0) + max(delta, 0)
 
-    return jsonify(durations)
+    # Convert to minutes for the UI formatter
+    durations_minutes = {k: v / 60.0 for k, v in durations.items()}
+
+    return jsonify(durations_minutes)
 
 # ---------------------------------------------
 # API: last 1 hour timeline (for line chart)
