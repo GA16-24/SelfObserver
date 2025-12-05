@@ -906,7 +906,7 @@
         async function fetchData(endpoint, fallback) {
             if (DEMO_MODE) return fallback();
             try {
-                const res = await fetch(endpoint);
+                const res = await fetch(endpoint, { cache: 'no-store' });
                 return await res.json();
             } catch (e) {
                 console.error("API Error", e);

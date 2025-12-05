@@ -30,6 +30,15 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, "static")
 )
 
+
+@app.after_request
+def add_no_cache_headers(resp):
+    """Force fresh data for the dashboard's live feed endpoints."""
+    resp.headers["Cache-Control"] = "no-store, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
 # ---------------------------------------------
 # Latest log lookup + reader
 # ---------------------------------------------
