@@ -337,21 +337,10 @@
             <div class="glass-card p-5 flex flex-col justify-center cursor-default h-48 shrink-0">
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-sub uppercase tracking-wider">Daily Goals</span>
-                    <span class="text-[10px] font-bold text-accent-color opacity-80">2/3</span>
+                    <span id="goals-summary" class="text-[10px] font-bold text-accent-color opacity-80">0/0</span>
                 </div>
-                <div class="space-y-3">
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox" checked>
-                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Clear Email Inbox</span>
-                    </label>
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox" checked>
-                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Push Production Fix</span>
-                    </label>
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox">
-                        <span class="text-xs font-medium text-main group-hover:opacity-80 transition-colors">Review Pull Requests</span>
-                    </label>
+                <div id="goals-list" class="space-y-3 text-sub text-xs">
+                    <div class="text-[11px] text-sub">Loading goals…</div>
                 </div>
             </div>
 
@@ -363,16 +352,16 @@
                 </div>
                 <div class="flex gap-6 mt-6 justify-center w-full px-4">
                     <div class="flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Focus</span>
-                        <span class="text-sm font-bold" style="color: var(--ring-1)">4.2h</span>
+                        <span id="ring-1-name" class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Focus</span>
+                        <span id="ring-1-value" class="text-sm font-bold" style="color: var(--ring-1)">0h</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Work</span>
-                        <span class="text-sm font-bold" style="color: var(--ring-2)">6.5h</span>
+                        <span id="ring-2-name" class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Work</span>
+                        <span id="ring-2-value" class="text-sm font-bold" style="color: var(--ring-2)">0h</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Sys</span>
-                        <span class="text-sm font-bold" style="color: var(--ring-3)">8.1h</span>
+                        <span id="ring-3-name" class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Sys</span>
+                        <span id="ring-3-value" class="text-sm font-bold" style="color: var(--ring-3)">0h</span>
                     </div>
                 </div>
             </div>
@@ -433,6 +422,28 @@
                     <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
                         <div id="ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: 45%"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Music Widget -->
+            <div class="glass-card p-4 h-48 flex flex-col justify-center gap-4 relative overflow-hidden group shrink-0">
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-50"></div>
+                <div class="flex items-center gap-4 relative z-10">
+                    <div class="w-14 h-14 rounded-xl bg-black/20 flex items-center justify-center shadow-md relative overflow-hidden shrink-0">
+                         <div class="flex items-end gap-0.5 h-6 opacity-70">
+                             <div class="w-1 bg-white animate-[music-bar_1s_ease-in-out_infinite]"></div>
+                             <div class="w-1 bg-white animate-[music-bar_1.2s_ease-in-out_infinite] animation-delay-100"></div>
+                             <div class="w-1 bg-white animate-[music-bar_0.8s_ease-in-out_infinite] animation-delay-200"></div>
+                         </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div id="music-title" class="text-sm font-bold text-main truncate">Midnight City</div>
+                        <div id="music-artist" class="text-[10px] font-medium text-sub truncate uppercase tracking-wider">M83</div>
+                    </div>
+                </div>
+                
+                <div class="w-full bg-black/10 h-1 rounded-full overflow-hidden relative z-10">
+                    <div id="music-progress" class="h-full bg-accent-color w-0 transition-all duration-1000 ease-linear"></div>
                 </div>
             </div>
 
@@ -615,35 +626,7 @@
                             <th class="p-4 font-semibold text-sub">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-white/10 text-main">
-                        <tr class="hover:bg-white/10 transition-colors">
-                            <td class="p-4">10:30 AM</td>
-                            <td class="p-4 font-medium">Deep Work: Coding</td>
-                            <td class="p-4">2h 15m</td>
-                            <td class="p-4"><span class="text-green-500 font-bold">98%</span></td>
-                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-green-500/20 text-green-600 text-xs font-bold uppercase">Completed</span></td>
-                        </tr>
-                        <tr class="hover:bg-white/10 transition-colors">
-                            <td class="p-4">01:15 PM</td>
-                            <td class="p-4 font-medium">Team Meeting</td>
-                            <td class="p-4">45m</td>
-                            <td class="p-4"><span class="text-yellow-500 font-bold">75%</span></td>
-                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-blue-500/20 text-blue-600 text-xs font-bold uppercase">Logged</span></td>
-                        </tr>
-                        <tr class="hover:bg-white/10 transition-colors">
-                            <td class="p-4">02:30 PM</td>
-                            <td class="p-4 font-medium">Research</td>
-                            <td class="p-4">1h 20m</td>
-                            <td class="p-4"><span class="text-green-500 font-bold">92%</span></td>
-                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-green-500/20 text-green-600 text-xs font-bold uppercase">Completed</span></td>
-                        </tr>
-                         <tr class="hover:bg-white/10 transition-colors">
-                            <td class="p-4">04:00 PM</td>
-                            <td class="p-4 font-medium">Email & Comms</td>
-                            <td class="p-4">30m</td>
-                            <td class="p-4"><span class="text-red-500 font-bold">60%</span></td>
-                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-gray-500/20 text-gray-600 text-xs font-bold uppercase">Archived</span></td>
-                        </tr>
+                    <tbody id="history-body" class="divide-y divide-white/10 text-main">
                     </tbody>
                 </table>
             </div>
@@ -651,9 +634,6 @@
     </section>
 
     <script>
-        // CONFIG
-        const DEMO_MODE = true; 
-
         // --- THEMES ---
         const THEMES = {
             apple: {
@@ -770,7 +750,8 @@
                 main: '#2c3e50', sub: '#7f8c8d', accent: '#3498db',
                 r1: '#3498db', r2: '#a8d0e6', r3: '#d6eaf8',
                 card: 'rgba(255, 255, 255, 0.6)', border: 'rgba(255, 255, 255, 0.8)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)',
+                hover: 'rgba(0,0,0,0.05)',
                 header: 'rgba(255, 255, 255, 0.7)'
             },
             summer: {
@@ -819,10 +800,30 @@
             { label: "Seasonal", items: ["christmas", "halloween", "winter", "summer"] },
         ];
 
+        let lineChart = null;
+        let barChart = null;
+        let flowChart = null;
+        let ringData = [
+            { name: 'Focus', percent: 0, minutes: 0 },
+            { name: 'Work', percent: 0, minutes: 0 },
+            { name: 'System', percent: 0, minutes: 0 }
+        ];
+
+        const SONGS = [
+            { title: "Midnight City", artist: "M83" },
+            { title: "Nightcall", artist: "Kavinsky" },
+            { title: "Blinding Lights", artist: "The Weeknd" },
+            { title: "Lofi Study", artist: "Chillhop" },
+            { title: "Cyberpunk 2077", artist: "Hyper" }
+        ];
+        let currentSongIdx = 0;
+        let isPlaying = true;
+        let musicProgress = 0;
+
         function initThemeMenu() {
             const container = document.getElementById("theme-list-container");
             if (!container) return;
-            
+
             let html = "";
             THEME_GROUPS.forEach(group => {
                 html += `<div class="px-4 py-1 mt-2 text-[10px] font-bold text-sub uppercase tracking-wider opacity-70">${group.label}</div>`;
@@ -845,7 +846,6 @@
             menu.classList.toggle("hidden");
         }
 
-        // Close menu when clicking outside
         document.addEventListener("click", function(e) {
             const menu = document.getElementById("theme-menu");
             const btn = document.getElementById("theme-btn");
@@ -857,7 +857,7 @@
         function changeTheme(themeName) {
             const t = THEMES[themeName] || THEMES.apple;
             const root = document.documentElement;
-            
+
             root.style.setProperty('--bg-gradient', t.bg);
             root.style.setProperty('--text-main', t.main);
             root.style.setProperty('--text-sub', t.sub);
@@ -872,40 +872,29 @@
             root.style.setProperty('--hover-bg', t.hover || 'rgba(0,0,0,0.05)');
             root.style.setProperty('--header-bg', t.header || 'rgba(255, 255, 255, 0.6)');
 
-            // Handle RGB Mode for Cyberpunk
             const bar = document.getElementById('stat-bar');
             if (bar) {
                 if (themeName === 'cyberpunk') {
                     bar.classList.add('rgb-bar');
                 } else {
                     bar.classList.remove('rgb-bar');
+                    bar.style.backgroundColor = getComputedStyle(root).getPropertyValue('--accent-color');
                 }
             }
-            
-            // Handle Decorations
-            updateDecorations(themeName);
-            
-            // Update Label text
-            document.getElementById("current-theme-label").innerText = t.name.split(" ")[0]; // Just the name, no emoji
-            
-            // Close menu
-            document.getElementById("theme-menu").classList.add("hidden");
 
-            // Re-render rings to pick up new colors
+            updateDecorations(themeName);
+            document.getElementById("current-theme-label").innerText = t.name.split(" ")[0];
+            document.getElementById("theme-menu").classList.add("hidden");
             drawRings();
-            // Re-render charts
-            updateCharts();
-            // Re-render apps to fix background boxes color
-            renderTopApps();
+            refreshChartsFromState();
+            renderTopApps(lastApps);
         }
 
-        // --- DECORATION LOGIC ---
         function updateDecorations(theme) {
             const layer = document.getElementById('decoration-layer');
             if (!layer) return;
-            layer.innerHTML = ''; // Clear previous
+            layer.innerHTML = '';
 
-            // 1. Christmas / Winter -> Snow
             if (theme === 'christmas' || theme === 'winter') {
                 for (let i = 0; i < 50; i++) {
                     const el = document.createElement('div');
@@ -920,7 +909,6 @@
                 }
             }
 
-            // 2. Halloween -> Ghosts / Bats
             if (theme === 'halloween') {
                 for (let i = 0; i < 15; i++) {
                     const el = document.createElement('div');
@@ -934,12 +922,11 @@
                 }
             }
 
-            // 3. Galaxy -> Stars
             if (theme === 'galaxy') {
                  for (let i = 0; i < 60; i++) {
                     const el = document.createElement('div');
                     el.classList.add('deco-item');
-                    el.innerHTML = '✨'; // or ★
+                    el.innerHTML = '✨';
                     el.style.left = Math.random() * 100 + 'vw';
                     el.style.top = Math.random() * 100 + 'vh';
                     el.style.fontSize = Math.random() * 10 + 5 + 'px';
@@ -949,7 +936,6 @@
                 }
             }
 
-             // 4. Cyberpunk / Terminal -> Glitch Rain
              if (theme === 'cyberpunk' || theme === 'terminal') {
                  for (let i = 0; i < 30; i++) {
                     const el = document.createElement('div');
@@ -965,7 +951,6 @@
                 }
             }
 
-            // 5. Forest -> Fireflies
             if (theme === 'forest') {
                  for (let i = 0; i < 20; i++) {
                     const el = document.createElement('div');
@@ -983,96 +968,398 @@
             }
         }
 
-        // --- RINGS ---
+        function formatMinutesFriendly(minutes) {
+            const m = minutes || 0;
+            if (m >= 60) {
+                const hours = m / 60;
+                if (Math.abs(hours - Math.round(hours)) < 0.05) {
+                    return `${Math.round(hours)}h`;
+                }
+                return `${hours.toFixed(1)}h`;
+            }
+            if (m >= 10) {
+                return `${Math.round(m)}m`;
+            }
+            return `${m.toFixed(1)}m`;
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined || Number.isNaN(value)) return '0%';
+            return `${Math.round(value)}%`;
+        }
+
+        async function fetchJson(url) {
+            try {
+                const res = await fetch(url, { cache: 'no-store' });
+                if (!res.ok) throw new Error('Request failed');
+                return await res.json();
+            } catch (e) {
+                console.warn('Failed to fetch', url, e);
+                return null;
+            }
+        }
+
+        function updateFocus(latest) {
+            const modeEl = document.getElementById('stat-mode');
+            const confEl = document.getElementById('stat-conf');
+            const barEl = document.getElementById('stat-bar');
+
+            if (!latest) {
+                if (modeEl) modeEl.innerText = 'Waiting for data';
+                if (confEl) confEl.innerText = '--';
+                if (barEl) barEl.style.width = '0%';
+                return;
+            }
+
+            const mode = latest.mode || 'Unknown';
+            const confidence = (latest.confidence || 0) * 100;
+            if (modeEl) modeEl.innerText = mode;
+            if (confEl) confEl.innerText = `${confidence.toFixed(0)}%`;
+            if (barEl) {
+                barEl.style.width = `${Math.min(confidence, 100)}%`;
+                if (!barEl.classList.contains('rgb-bar')) {
+                    barEl.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
+                }
+            }
+        }
+
+        function renderLogs(logs) {
+            const logContainer = document.getElementById('log-body');
+            if (!logContainer) return;
+            logContainer.innerHTML = '';
+
+            (logs || []).slice(0, 25).forEach(entry => {
+                const time = entry.ts_display || entry.ts || '--';
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-white/10 transition-colors rounded-lg group';
+                row.innerHTML = `
+                    <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${time}</td>
+                    <td class="py-2 px-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                            <span class="text-xs font-semibold text-main truncate">${entry.exe || 'Unknown app'}</span>
+                        </div>
+                        <div class="text-[10px] text-sub truncate">${entry.title || ''}</div>
+                    </td>
+                `;
+                logContainer.appendChild(row);
+            });
+        }
+
+        function renderHistory(logs) {
+            const tbody = document.getElementById('history-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (logs || []).slice(0, 8).forEach(entry => {
+                const efficiency = entry.confidence ? `${Math.round(entry.confidence * 100)}%` : '--';
+                const status = entry.mode ? entry.mode.toUpperCase() : 'LOGGED';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/10 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-4">${entry.ts_display || entry.ts || '--'}</td>
+                    <td class="p-4 font-medium">${entry.title || entry.exe || 'Unknown activity'}</td>
+                    <td class="p-4">--</td>
+                    <td class="p-4"><span class="text-green-500 font-bold">${efficiency}</span></td>
+                    <td class="p-4"><span class="px-2 py-1 rounded-md bg-green-500/20 text-green-600 text-xs font-bold uppercase">${status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTopApps(apps) {
+            const container = document.getElementById('top-apps-list');
+            if (!container) return;
+            const list = apps && apps.length ? apps : [];
+            if (!list.length) {
+                container.innerHTML = '<div class="text-xs text-sub">No app activity yet.</div>';
+                return;
+            }
+            const total = list.reduce((sum, a) => sum + (a.minutes || 0), 0) || 1;
+            container.innerHTML = list.slice(0, 6).map(app => {
+                const percent = Math.min((app.minutes || 0) / total * 100, 100);
+                return `
+                <div class="flex items-center gap-3 group cursor-default">
+                    <div class="w-10 h-10 squircle bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-sm text-sm font-bold shrink-0">
+                        ${(app.exe || app.name || '?').charAt(0)}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-semibold text-main truncate">${app.exe || app.name}</span>
+                            <span class="text-[10px] font-medium text-sub">${formatMinutesFriendly(app.minutes)}</span>
+                        </div>
+                        <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderGoals(goals) {
+            const list = document.getElementById('goals-list');
+            const summary = document.getElementById('goals-summary');
+            if (!list || !summary) return;
+            if (!goals || !goals.length) {
+                list.innerHTML = '<div class="text-xs text-sub">Connect an Obsidian vault to see your tasks.</div>';
+                summary.innerText = '0/0';
+                return;
+            }
+
+            const completed = goals.filter(g => g.done).length;
+            summary.innerText = `${completed}/${goals.length}`;
+            list.innerHTML = goals.slice(0, 5).map(goal => `
+                <label class="flex items-center gap-3 group cursor-pointer">
+                    <input type="checkbox" class="custom-checkbox" ${goal.done ? 'checked' : ''} disabled>
+                    <span class="text-xs font-medium ${goal.done ? 'text-sub line-through opacity-70' : 'text-main'} group-hover:opacity-80 transition-colors truncate">${goal.title || 'Task'}</span>
+                </label>
+            `).join('');
+        }
+
+        function renderSystem(snapshot) {
+            if (!snapshot) return;
+            const cpuVal = document.getElementById('cpu-val');
+            const cpuBar = document.getElementById('cpu-bar');
+            const ramVal = document.getElementById('ram-val');
+            const ramBar = document.getElementById('ram-bar');
+
+            if (cpuVal) cpuVal.innerText = snapshot.cpu_load !== null && snapshot.cpu_load !== undefined ? `${snapshot.cpu_load.toFixed(0)}%` : '--';
+            if (cpuBar && snapshot.cpu_load !== null && snapshot.cpu_load !== undefined) {
+                cpuBar.style.width = `${Math.min(snapshot.cpu_load, 100)}%`;
+            }
+
+            if (ramVal) {
+                const total = snapshot.ram_total_gb ? snapshot.ram_total_gb.toFixed(1) : '?';
+                const used = snapshot.ram_used_gb ? snapshot.ram_used_gb.toFixed(1) : '?';
+                ramVal.innerText = snapshot.ram_percent ? `${used} / ${total} GB` : '--';
+            }
+            if (ramBar && snapshot.ram_percent !== null && snapshot.ram_percent !== undefined) {
+                ramBar.style.width = `${Math.min(snapshot.ram_percent, 100)}%`;
+            }
+        }
+
+        function updateRingsFromDayStats(dayStats) {
+            const entries = Object.entries(dayStats || {}).sort((a, b) => b[1] - a[1]);
+            const totalMinutes = entries.reduce((sum, [, minutes]) => sum + minutes, 0) || 1;
+            const top = entries.slice(0, 3);
+            while (top.length < 3) top.push(['Idle', 0]);
+
+            ringData = top.map(([name, minutes]) => ({
+                name,
+                minutes,
+                percent: Math.min(minutes / totalMinutes, 1)
+            }));
+
+            ['ring-1', 'ring-2', 'ring-3'].forEach((id, idx) => {
+                const nameEl = document.getElementById(`${id}-name`);
+                const valEl = document.getElementById(`${id}-value`);
+                const data = ringData[idx];
+                if (nameEl) nameEl.innerText = (data?.name || 'N/A').slice(0, 8);
+                if (valEl) valEl.innerText = formatMinutesFriendly(data?.minutes || 0);
+            });
+
+            drawRings();
+        }
+
         function drawRings() {
             const canvas = document.getElementById('ringsCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            
-            // Handle High DPI
+
             const dpr = window.devicePixelRatio || 1;
             canvas.width = 140 * dpr;
             canvas.height = 140 * dpr;
             canvas.style.width = "140px";
             canvas.style.height = "140px";
             ctx.scale(dpr, dpr);
-            
-            const w = 140;
-            const h = 140;
-            const center = w / 2;
-            
-            ctx.clearRect(0, 0, w, h);
-            ctx.lineCap = 'round';
-            
-            // Get Colors from CSS Vars
-            const styles = getComputedStyle(document.documentElement);
-            const r1 = styles.getPropertyValue('--ring-1').trim();
-            const r2 = styles.getPropertyValue('--ring-2').trim();
-            const r3 = styles.getPropertyValue('--ring-3').trim();
 
-            const rings = [
-                { r: 55, color: r1, percent: 0.75 },
-                { r: 40, color: r2, percent: 0.55 },
-                { r: 25, color: r3, percent: 0.85 }
+            const w = 140;
+            const center = w / 2;
+            ctx.clearRect(0, 0, w, w);
+            ctx.lineCap = 'round';
+
+            const styles = getComputedStyle(document.documentElement);
+            const colors = [
+                styles.getPropertyValue('--ring-1').trim(),
+                styles.getPropertyValue('--ring-2').trim(),
+                styles.getPropertyValue('--ring-3').trim(),
             ];
 
-            rings.forEach(ring => {
-                // Track Background
+            const radii = [55, 40, 25];
+            ringData.forEach((ring, idx) => {
+                const radius = radii[idx];
+                const color = colors[idx] || '#000';
                 ctx.beginPath();
-                ctx.arc(center, center, ring.r, 0, 2 * Math.PI);
-                ctx.strokeStyle = ring.color;
+                ctx.arc(center, center, radius, 0, 2 * Math.PI);
+                ctx.strokeStyle = color;
                 ctx.globalAlpha = 0.2;
                 ctx.lineWidth = 10;
                 ctx.stroke();
 
-                // Foreground
                 ctx.globalAlpha = 1.0;
                 ctx.beginPath();
-                // Start from top (-90deg)
-                ctx.arc(center, center, ring.r, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * ring.percent));
+                ctx.arc(center, center, radius, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * (ring.percent || 0)));
                 ctx.stroke();
             });
         }
 
-        // --- UTILS ---
-        let lineChart = null;
-        let barChart = null;
-        let flowChart = null;
+        function buildHourBuckets(timeline) {
+            const now = new Date();
+            const start = new Date(now.getTime() - 60 * 60000);
+            const buckets = Array(6).fill(0);
+            const labels = Array.from({ length: 6 }, (_, i) => {
+                const ts = new Date(start.getTime() + i * 10 * 60000);
+                return ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            });
 
-        function getMockTopApps() {
-            return [
-                { name: "Visual Studio Code", cat: "Coding", percent: 0.8, time: "4h 20m", color: "from-blue-500 to-blue-600" },
-                { name: "Google Chrome", cat: "Browsing", percent: 0.4, time: "2h 10m", color: "from-yellow-400 to-orange-500" },
-                { name: "Slack", cat: "Chat", percent: 0.2, time: "45m", color: "from-purple-500 to-pink-500" },
-                { name: "Terminal", cat: "System", percent: 0.15, time: "30m", color: "from-gray-700 to-gray-900" },
-                { name: "Spotify", cat: "Media", percent: 0.1, time: "15m", color: "from-green-400 to-emerald-600" }
-            ];
+            const sorted = (timeline || [])
+                .map(t => ({ ...t, ts: t.ts ? new Date(t.ts) : null }))
+                .filter(t => t.ts && t.ts >= start)
+                .sort((a, b) => a.ts - b.ts);
+
+            if (!sorted.length) {
+                return { labels, buckets };
+            }
+
+            let lastTs = start;
+
+            const addDuration = (from, to) => {
+                let s = from.getTime();
+                const end = to.getTime();
+                while (s < end) {
+                    const bucketIdx = Math.min(5, Math.floor((s - start.getTime()) / (10 * 60000)));
+                    const bucketEnd = Math.min(start.getTime() + (bucketIdx + 1) * 10 * 60000, end);
+                    buckets[bucketIdx] += (bucketEnd - s) / 60000;
+                    s = bucketEnd;
+                }
+            };
+
+            sorted.forEach(entry => {
+                const ts = entry.ts;
+                const clamped = ts < start ? start : ts;
+                addDuration(lastTs, clamped);
+                lastTs = clamped;
+            });
+
+            addDuration(lastTs, now);
+
+            return { labels, buckets };
         }
 
-        function renderTopApps() {
-            const container = document.getElementById('top-apps-list');
-            if (!container) return;
-            
-            const apps = getMockTopApps();
-            container.innerHTML = apps.map(app => `
-                <div class="flex items-center gap-3 group cursor-default">
-                    <div class="w-10 h-10 squircle bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-sm text-sm font-bold shrink-0">
-                        ${app.name.charAt(0)}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-xs font-semibold text-main truncate">${app.name}</span>
-                            <span class="text-[10px] font-medium text-sub">${app.time}</span>
-                        </div>
-                        <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r ${app.color} rounded-full" style="width: ${app.percent * 100}%"></div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+        function refreshLineChart(hourTimeline) {
+            const { labels, buckets } = buildHourBuckets(hourTimeline);
+            const canvas = document.getElementById('lineChart');
+            if (!canvas) return;
+            const styles = getComputedStyle(document.documentElement);
+            const mainColor = styles.getPropertyValue('--text-main').trim();
+            const subColor = styles.getPropertyValue('--text-sub').trim();
+            const ctx = canvas.getContext('2d');
+
+            if (!lineChart) {
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, `${mainColor}22`);
+                gradient.addColorStop(1, `${mainColor}00`);
+                lineChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets: [{ data: buckets, label: 'Active minutes' }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: subColor, font: { family: 'Inter', size: 10 } } },
+                            y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: subColor, callback: v => formatMinutesFriendly(v) } }
+                        }
+                    }
+                });
+            }
+
+            lineChart.data.labels = labels;
+            lineChart.data.datasets = [{
+                label: 'Active minutes',
+                data: buckets,
+                borderColor: mainColor,
+                backgroundColor: `${mainColor}22`,
+                borderWidth: 2,
+                tension: 0.35,
+                pointRadius: 0,
+                fill: true,
+            }];
+            lineChart.update();
         }
 
-        // Render Badges
+        function refreshDeepAnalytics(dayStats) {
+            const canvas = document.getElementById('barChart');
+            if (!canvas) return;
+            const styles = getComputedStyle(document.documentElement);
+            const accentColor = styles.getPropertyValue('--accent-color').trim();
+            const subColor = styles.getPropertyValue('--text-sub').trim();
+
+            const entries = Object.entries(dayStats || {}).sort((a, b) => b[1] - a[1]).slice(0, 7);
+            const labels = entries.map(([mode]) => mode);
+            const values = entries.map(([, minutes]) => minutes / 60);
+
+            const ctx = canvas.getContext('2d');
+            if (!barChart) {
+                barChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets: [{ data: values, backgroundColor: accentColor, borderRadius: 6 }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: subColor } },
+                            y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            barChart.data.labels = labels;
+            barChart.data.datasets[0].data = values;
+            barChart.data.datasets[0].backgroundColor = accentColor;
+            barChart.update();
+        }
+
+        function refreshFlowChart(hourTimeline) {
+            const canvas = document.getElementById('flowChart');
+            if (!canvas) return;
+            const { labels, buckets } = buildHourBuckets(hourTimeline);
+            const styles = getComputedStyle(document.documentElement);
+            const accentColor = styles.getPropertyValue('--accent-color').trim();
+            const subColor = styles.getPropertyValue('--text-sub').trim();
+            const ctx = canvas.getContext('2d');
+
+            if (!flowChart) {
+                flowChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets: [{ data: buckets, backgroundColor: accentColor, borderRadius: 10, borderSkipped: false, barThickness: 16 }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: subColor, font: { size: 10 } }, border: { display: false } },
+                            y: { display: false }
+                        }
+                    });
+                }
+            }
+
+            flowChart.data.labels = labels;
+            flowChart.data.datasets[0].data = buckets;
+            flowChart.data.datasets[0].backgroundColor = accentColor;
+            flowChart.update();
+        }
+
+        function refreshChartsFromState() {
+            refreshLineChart(lastHourTimeline);
+            refreshDeepAnalytics(lastDayStats);
+            refreshFlowChart(lastHourTimeline);
+        }
+
         function renderBadges() {
             const container = document.getElementById("badges-container");
             if (!container) return;
@@ -1100,18 +1387,6 @@
             `).join('');
         }
 
-        // Music Logic
-        const SONGS = [
-            { title: "Midnight City", artist: "M83" },
-            { title: "Nightcall", artist: "Kavinsky" },
-            { title: "Blinding Lights", artist: "The Weeknd" },
-            { title: "Lofi Study", artist: "Chillhop" },
-            { title: "Cyberpunk 2077", artist: "Hyper" }
-        ];
-        let currentSongIdx = 0;
-        let isPlaying = true;
-        let musicProgress = 0;
-
         function updateMusicProgress() {
             if (!isPlaying) return;
             musicProgress += 1;
@@ -1127,7 +1402,7 @@
             currentSongIdx += dir;
             if (currentSongIdx < 0) currentSongIdx = SONGS.length - 1;
             if (currentSongIdx >= SONGS.length) currentSongIdx = 0;
-            
+
             const song = SONGS[currentSongIdx];
             document.getElementById("music-title").innerText = song.title;
             document.getElementById("music-artist").innerText = song.artist;
@@ -1145,215 +1420,50 @@
             }
         }
 
-        async function updateDashboard() {
-            updateCharts();
+        let lastLogs = [];
+        let lastDayStats = {};
+        let lastHourTimeline = [];
+        let lastApps = [];
 
-            // Update System Vitals (Mock)
-            const cpu = Math.floor(Math.random() * 30) + 5;
-            const ram = (Math.random() * 2 + 8).toFixed(1);
-            const cpuBar = document.getElementById('cpu-bar');
-            const ramBar = document.getElementById('ram-bar');
-            
-            if (cpuBar) {
-                document.getElementById('cpu-val').innerText = cpu + "%";
-                cpuBar.style.width = cpu + "%";
-            }
-            if (ramBar) {
-                document.getElementById('ram-val').innerText = ram + " GB";
-                ramBar.style.width = ((ram / 16) * 100) + "%"; 
-            }
-            
-            // Update Logs (Mock)
-            const logContainer = document.getElementById("log-body");
-            if (logContainer) {
-                const now = new Date();
-                const time = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-                const activities = ["Coding in VS Code", "Browsing StackOverflow", "Slack Message", "Spotify Change", "Terminal Command", "Git Commit", "File Save"];
-                const act = activities[Math.floor(Math.random() * activities.length)];
-                
-                const row = `
-                    <tr class="hover:bg-white/10 transition-colors rounded-lg group animate-[fadeIn_0.5s_ease-in-out]">
-                        <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${time}</td>
-                        <td class="py-2 px-1">
-                            <div class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                <span class="text-xs font-semibold text-main truncate">${act}</span>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                logContainer.insertAdjacentHTML('afterbegin', row);
-                if (logContainer.children.length > 20) logContainer.lastElementChild.remove();
-            }
+        async function refreshDashboard() {
+            const [logs, dayStats, hourTimeline, apps, systemSnapshot, goals] = await Promise.all([
+                fetchJson('/api/latest'),
+                fetchJson('/api/stats/day'),
+                fetchJson('/api/stats/hour'),
+                fetchJson('/api/stats/apps'),
+                fetchJson('/api/system'),
+                fetchJson('/api/goals'),
+            ]);
 
-            // Update Header Stats
-            const modeEl = document.getElementById("stat-mode");
-            if (modeEl) modeEl.innerText = "Deep Work";
-            
-            const confEl = document.getElementById("stat-conf");
-            if (confEl) confEl.innerText = "92%";
-            
-            const barEl = document.getElementById("stat-bar");
-            if (barEl) {
-                barEl.style.width = "92%";
-                if (!barEl.classList.contains('rgb-bar')) {
-                    barEl.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
-                }
-            }
+            lastLogs = logs || [];
+            lastDayStats = dayStats || {};
+            lastHourTimeline = hourTimeline || [];
+            lastApps = apps || [];
+
+            updateFocus(lastLogs[0]);
+            renderLogs(lastLogs);
+            renderHistory(lastLogs);
+            renderTopApps(lastApps);
+            renderGoals(goals?.goals);
+            renderSystem(systemSnapshot);
+            updateRingsFromDayStats(lastDayStats);
+            refreshChartsFromState();
         }
 
-        function updateCharts() {
-            // Get Theme Colors
-            const styles = getComputedStyle(document.documentElement);
-            const mainColor = styles.getPropertyValue('--text-main').trim();
-            const subColor = styles.getPropertyValue('--text-sub').trim();
-            const accentColor = styles.getPropertyValue('--accent-color').trim();
-
-            // 1. Line Chart
-            const lineCanvas = document.getElementById("lineChart");
-            if (lineCanvas) {
-                const ctx = lineCanvas.getContext("2d");
-                const timelineData = Array.from({length: 6}, (_, i) => Math.floor(Math.random() * 50) + 20);
-                const labels = timelineData.map((_, i) => new Date(Date.now() - (5-i)*10*60000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
-
-                if (lineChart) {
-                    lineChart.data.labels = labels;
-                    lineChart.data.datasets[0].data = timelineData;
-                    lineChart.data.datasets[0].borderColor = mainColor;
-                    lineChart.data.datasets[0].pointBorderColor = mainColor;
-                    lineChart.update('none');
-                } else {
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                    gradient.addColorStop(0, 'rgba(0,0,0,0.1)');
-                    gradient.addColorStop(1, 'rgba(0,0,0,0)');
-
-                    lineChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Focus',
-                                data: timelineData,
-                                borderColor: mainColor,
-                                backgroundColor: gradient,
-                                borderWidth: 2,
-                                tension: 0.4,
-                                pointRadius: 0,
-                                pointHoverRadius: 6,
-                                pointBackgroundColor: '#fff',
-                                pointBorderColor: mainColor,
-                                pointBorderWidth: 2,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: subColor } },
-                                y: { display: false }
-                            }
-                        }
-                    });
-                }
-            }
-
-            // 2. Bar Chart (Deep Analytics)
-            const barCanvas = document.getElementById("barChart");
-            if (barCanvas) {
-                const ctx = barCanvas.getContext("2d");
-                if (barChart) {
-                    barChart.data.datasets[0].backgroundColor = accentColor;
-                    barChart.data.datasets[1].backgroundColor = subColor;
-                    barChart.update('none');
-                } else {
-                    barChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                            datasets: [
-                                {
-                                    label: 'Productive',
-                                    data: [5, 7, 4, 8, 6, 3, 2],
-                                    backgroundColor: accentColor,
-                                    borderRadius: 4,
-                                },
-                                {
-                                    label: 'Distracted',
-                                    data: [2, 1, 3, 1, 2, 4, 1],
-                                    backgroundColor: subColor,
-                                    borderRadius: 4,
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { grid: { display: false }, ticks: { color: subColor } },
-                                y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { display: false }, border: { display: false } }
-                            }
-                        }
-                    });
-                }
-            }
-
-            // 3. Flow Chart
-            const flowCanvas = document.getElementById("flowChart");
-            if (flowCanvas) {
-                const ctx = flowCanvas.getContext("2d");
-                if (flowChart) {
-                    flowChart.data.datasets[0].backgroundColor = accentColor;
-                    flowChart.update('none');
-                } else {
-                    flowChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-                            datasets: [{
-                                label: 'Max Streak (hrs)',
-                                data: [3.5, 4.2, 2.1, 5.0, 3.8, 1.5, 0.5],
-                                backgroundColor: accentColor,
-                                borderRadius: 10,
-                                borderSkipped: false,
-                                barThickness: 12
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { grid: { display: false }, ticks: { color: subColor, font: { size: 10 } }, border: { display: false } },
-                                y: { display: false }
-                            }
-                        }
-                    });
-                }
-            }
-        }
-
-        // Clock
         setInterval(() => {
             const clockEl = document.getElementById("clock");
             if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('en-US', {hour12: false});
             updateMusicProgress();
         }, 1000);
 
-        // Init
         window.addEventListener('load', () => {
-            initThemeMenu(); // Build the new menu
+            initThemeMenu();
             drawRings();
-            renderTopApps();
             renderBadges();
-            updateDashboard();
-            setInterval(updateDashboard, 3000);
-            togglePlay(); // Set initial icon state to pause (playing)
-            
-            // Add Fade In Animation
+            refreshDashboard();
+            setInterval(refreshDashboard, 8000);
+            togglePlay();
+
             const style = document.createElement('style');
             style.innerHTML = `
                 @keyframes fadeIn {
