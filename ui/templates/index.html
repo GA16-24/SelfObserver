@@ -445,10 +445,6 @@
                 <div class="w-full bg-black/10 h-1 rounded-full overflow-hidden relative z-10">
                     <div id="music-progress" class="h-full bg-accent-color w-0 transition-all duration-1000 ease-linear"></div>
                 </div>
-                
-                <div class="w-full bg-black/10 h-1 rounded-full overflow-hidden relative z-10">
-                    <div id="music-progress" class="h-full bg-accent-color w-0 transition-all duration-1000 ease-linear"></div>
-                </div>
 
                 <div class="flex items-center justify-center gap-4 text-main relative z-10">
                     <button onclick="skipSong(-1)" class="hover:text-accent-color transition-colors p-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
@@ -1005,6 +1001,25 @@
             }
         }
 
+        function annotateDurations(logs) {
+            return (logs || []).map((entry, idx) => {
+                const next = logs[idx + 1];
+                const currentTs = entry?.ts ? new Date(entry.ts) : null;
+                const nextTs = next?.ts ? new Date(next.ts) : null;
+
+                let minutes = null;
+                if (currentTs) {
+                    const end = nextTs || new Date();
+                    minutes = Math.max((end - currentTs) / 60000, 0);
+                }
+
+                return {
+                    ...entry,
+                    duration_minutes: minutes,
+                };
+            });
+        }
+
         function renderLogs(logs) {
             const logContainer = document.getElementById('log-body');
             if (!logContainer) return;
@@ -1020,8 +1035,10 @@
                         <div class="flex items-center gap-2">
                             <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                             <span class="text-xs font-semibold text-main truncate">${entry.exe || 'Unknown app'}</span>
+                            ${entry.mode ? `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-black/5 text-sub">${entry.mode}</span>` : ''}
                         </div>
                         <div class="text-[10px] text-sub truncate">${entry.title || ''}</div>
+                        ${entry.duration_minutes !== null && entry.duration_minutes !== undefined ? `<div class="text-[10px] text-sub mt-0.5">Duration: ${formatMinutesFriendly(entry.duration_minutes)}</div>` : ''}
                     </td>
                 `;
                 logContainer.appendChild(row);
@@ -1041,7 +1058,7 @@
                 tr.innerHTML = `
                     <td class="p-4">${entry.ts_display || entry.ts || '--'}</td>
                     <td class="p-4 font-medium">${entry.title || entry.exe || 'Unknown activity'}</td>
-                    <td class="p-4">--</td>
+                    <td class="p-4">${entry.duration_minutes !== null && entry.duration_minutes !== undefined ? formatMinutesFriendly(entry.duration_minutes) : '--'}</td>
                     <td class="p-4"><span class="text-green-500 font-bold">${efficiency}</span></td>
                     <td class="p-4"><span class="px-2 py-1 rounded-md bg-green-500/20 text-green-600 text-xs font-bold uppercase">${status}</span></td>
                 `;
@@ -1094,6 +1111,7 @@
                 <label class="flex items-center gap-3 group cursor-pointer">
                     <input type="checkbox" class="custom-checkbox" ${goal.done ? 'checked' : ''} disabled>
                     <span class="text-xs font-medium ${goal.done ? 'text-sub line-through opacity-70' : 'text-main'} group-hover:opacity-80 transition-colors truncate">${goal.title || 'Task'}</span>
+                    ${goal.due ? `<span class="text-[10px] font-semibold text-sub bg-white/30 px-2 py-0.5 rounded">${goal.due}</span>` : ''}
                 </label>
             `).join('');
         }
@@ -1396,6 +1414,53 @@
                 musicProgress = 0;
                 skipSong(1);
             }
+
+            flowChart.data.labels = labels;
+            flowChart.data.datasets[0].data = buckets;
+            flowChart.data.datasets[0].backgroundColor = accentColor;
+            flowChart.update();
+        }
+
+        function refreshChartsFromState() {
+            refreshLineChart(lastHourTimeline);
+            refreshDeepAnalytics(lastDayStats);
+            refreshFlowChart(lastHourTimeline);
+        }
+
+        function renderBadges() {
+            const container = document.getElementById("badges-container");
+            if (!container) return;
+
+            const badges = [
+                { name: 'Inbox Zero', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', earned: true },
+                { name: 'Deep Work', icon: 'M13 10V3L4 14h7v7l9-11h-7z', earned: true },
+                { name: 'Night Owl', icon: 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z', earned: true },
+                { name: 'Early Bird', icon: 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707', earned: false },
+                { name: 'Zen Master', icon: 'M12 19l9 2-9-18-9 18 9-2zm0 0v-8', earned: false },
+                { name: 'Code Warrior', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', earned: true },
+                { name: 'Streak King', icon: 'M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z', earned: false },
+                { name: 'Clean Desk', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10', earned: true },
+            ];
+
+            container.innerHTML = badges.map(b => `
+                <div class="aspect-square rounded-xl badge-slot flex items-center justify-center relative group cursor-help ${b.earned ? 'earned' : ''}">
+                    <svg class="w-6 h-6 badge-icon text-main" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="${b.icon}"></path>
+                    </svg>
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                        ${b.name} ${b.earned ? '✓' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateMusicProgress() {
+            if (!isPlaying) return;
+            musicProgress += 1;
+            if (musicProgress > 100) {
+                musicProgress = 0;
+                skipSong(1);
+            }
             const bar = document.getElementById("music-progress");
             if(bar) bar.style.width = musicProgress + "%";
         }
@@ -1437,7 +1502,7 @@
                 fetchJson('/api/goals'),
             ]);
 
-            lastLogs = logs || [];
+            lastLogs = annotateDurations(logs || []);
             lastDayStats = dayStats || {};
             lastHourTimeline = hourTimeline || [];
             lastApps = apps || [];
