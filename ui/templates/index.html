@@ -25,6 +25,7 @@
             --input-bg: rgba(255, 255, 255, 0.4);
             --menu-bg: rgba(255, 255, 255, 0.85);
             --hover-bg: rgba(0, 0, 0, 0.05);
+            --header-bg: rgba(255, 255, 255, 0.6);
             --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
@@ -32,7 +33,8 @@
             font-family: var(--font-family);
             background-color: #f5f5f7;
             color: var(--text-main);
-            overflow: hidden;
+            overflow-y: auto; 
+            overflow-x: hidden;
             transition: background-color 0.5s ease, color 0.5s ease;
         }
 
@@ -54,7 +56,7 @@
             overflow: hidden;
         }
 
-        /* The Card */
+        /* Standard Card */
         .glass-card {
             background: var(--card-bg);
             backdrop-filter: blur(20px);
@@ -65,20 +67,30 @@
                 0 4px 6px -1px rgba(0, 0, 0, 0.01), 
                 0 10px 15px -3px rgba(0, 0, 0, 0.01),
                 0 0 0 1px rgba(0, 0, 0, 0.02);
-            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, background-color 0.4s ease;
             position: relative;
-            z-index: 10; /* Above decorations */
+            z-index: 10;
+            will-change: transform, box-shadow;
         }
 
         .glass-card:hover {
-            background: rgba(255, 255, 255, 0.15); /* Adaptive hover */
+            background: rgba(255, 255, 255, 0.15);
             transform: translateY(-4px);
-            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Header Specific Glass */
+        .header-glass {
+            background: var(--header-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
         }
 
         /* Interactive Elements */
         button {
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease, opacity 0.2s ease;
             outline: none;
         }
         button:active { transform: scale(0.95); }
@@ -88,7 +100,7 @@
         .text-main { color: var(--text-main); transition: color 0.5s ease; }
         .text-sub { color: var(--text-sub); transition: color 0.5s ease; }
 
-        /* Custom Scrollbar for Menu */
+        /* Custom Scrollbar */
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
@@ -132,6 +144,9 @@
             position: relative;
             width: 140px;
             height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* Dynamic SVG Coloring */
@@ -140,7 +155,7 @@
             transition: color 0.5s ease;
         }
 
-        /* RGB Bar Animation for Cyberpunk */
+        /* RGB Bar */
         @keyframes rainbow-cycle {
             0% { background-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
             16% { background-color: #ffff00; box-shadow: 0 0 15px #ffff00; }
@@ -162,8 +177,6 @@
             appearance: none;
             background-color: var(--input-bg);
             margin: 0;
-            font: inherit;
-            color: currentColor;
             width: 1.15em;
             height: 1.15em;
             border: 1px solid currentColor;
@@ -172,6 +185,7 @@
             place-content: center;
             cursor: pointer;
             opacity: 0.6;
+            color: currentColor;
         }
         .custom-checkbox::before {
             content: "";
@@ -188,92 +202,122 @@
             transform: scale(1);
         }
 
+        /* Music Visualizer Bars */
+        @keyframes music-bar {
+            0%, 100% { height: 20%; }
+            50% { height: 100%; }
+        }
+
+        /* Scroll Bounce Indicator */
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 
+            40% {transform: translateY(-10px);} 
+            60% {transform: translateY(-5px);} 
+        }
+        .scroll-hint {
+            animation: bounce 2s infinite;
+        }
+
+        /* Squircle Icon */
+        .squircle {
+            border-radius: 22%;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* Badge Styles */
+        .badge-slot {
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .badge-slot.earned {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px -5px var(--accent-color);
+        }
+        .badge-icon {
+            filter: grayscale(100%) opacity(0.4);
+            transition: all 0.5s ease;
+        }
+        .badge-slot.earned .badge-icon {
+            filter: grayscale(0%) opacity(1);
+            transform: scale(1.1);
+        }
+
         /* --- DECORATION ANIMATIONS --- */
-        
-        /* Snow / Rain */
         @keyframes fall {
             0% { transform: translateY(-10vh) translateX(0px) rotate(0deg); opacity: 0; }
             10% { opacity: 1; }
             100% { transform: translateY(110vh) translateX(20px) rotate(360deg); opacity: 0.3; }
         }
-        
-        /* Floating Ghosts/Particles */
         @keyframes float-up {
             0% { transform: translateY(110vh) translateX(0); opacity: 0; }
             20% { opacity: 0.6; }
             80% { opacity: 0.6; }
             100% { transform: translateY(-10vh) translateX(20px); opacity: 0; }
         }
-
-        /* Twinkling Stars */
         @keyframes twinkle {
             0%, 100% { opacity: 0.2; transform: scale(0.8); }
             50% { opacity: 1; transform: scale(1.2); }
         }
-
-        .deco-item {
-            position: absolute;
-            user-select: none;
-        }
+        .deco-item { position: absolute; user-select: none; }
 
     </style>
 </head>
-<body class="h-screen flex flex-col p-6 max-w-[1600px] mx-auto transition-colors duration-500">
+<body class="min-h-screen flex flex-col p-6 max-w-[1600px] mx-auto transition-colors duration-500 pb-20">
 
     <div class="ambient-bg" id="bg-layer"></div>
     <div id="decoration-layer"></div>
 
     <!-- Header -->
-    <header class="flex justify-between items-center mb-6 shrink-0 px-2 relative z-50">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-sm border border-white/30 transition hover:scale-105 cursor-pointer">
-                <svg class="w-6 h-6 icon-dynamic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-            </div>
-            <div>
-                <h1 class="text-2xl font-bold text-main">SelfObserver</h1>
-                <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full status-dot-active"></span>
-                    <span class="text-xs font-medium text-sub">Monitoring Active</span>
+    <header class="flex justify-between items-center mb-6 shrink-0 px-2 relative z-50 sticky top-6 pointer-events-none">
+        
+        <!-- Left Side: Branding -->
+        <div class="pointer-events-auto">
+            <div class="flex items-center gap-3 p-1.5 pr-5 rounded-2xl header-glass transition hover:scale-[1.02] cursor-default group">
+                <div class="w-10 h-10 bg-white/40 rounded-xl flex items-center justify-center shadow-sm border border-white/20 transition group-hover:bg-white/60">
+                    <svg class="w-5 h-5 icon-dynamic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold text-main leading-tight">SelfObserver</h1>
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full status-dot-active"></span>
+                        <span class="text-[10px] font-medium text-sub">Monitoring Active</span>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <div class="flex items-center gap-4">
-            <!-- Custom Theme Dropdown -->
+        <!-- Right Side: Controls -->
+        <div class="flex items-center gap-3 pointer-events-auto">
             <div class="relative">
-                <button id="theme-btn" onclick="toggleThemeMenu()" class="custom-dropdown-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm backdrop-blur-md hover:opacity-90">
-                    <span class="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-purple-500"></span>
+                <button id="theme-btn" onclick="toggleThemeMenu()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold header-glass hover:opacity-90 transition-all active:scale-95 text-main">
+                    <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500"></span>
                     <span id="current-theme-label">Original</span>
-                    <svg class="w-3 h-3 ml-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg class="w-3 h-3 ml-1 text-sub opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
-
-                <!-- Dropdown Content -->
                 <div id="theme-menu" class="hidden absolute top-full right-0 mt-2 w-56 custom-dropdown-menu rounded-2xl shadow-2xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
                     <div class="max-h-[60vh] overflow-y-auto custom-scroll py-2">
-                        
-                        <!-- Populated by JS -->
                         <div id="theme-list-container"></div>
-
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 shadow-sm flex items-center gap-3 hover:bg-white/30 transition cursor-default">
-                <span id="clock" class="text-sm font-semibold text-main tabular-nums">00:00:00</span>
-                <span class="text-xs text-main opacity-50">|</span>
-                <span class="text-xs font-medium text-sub uppercase tracking-wide">California</span>
+            <div class="px-5 py-2.5 rounded-xl header-glass flex items-center gap-3 hover:opacity-90 transition-all cursor-default">
+                <span id="clock" class="text-xs font-bold text-main tabular-nums">00:00:00</span>
+                <span class="text-[10px] text-main opacity-30">|</span>
+                <span class="text-[10px] font-semibold text-sub uppercase tracking-wide">California</span>
             </div>
         </div>
     </header>
 
-    <!-- Main Grid -->
-    <main class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 min-h-0 pb-2 relative z-10">
+    <!-- SECTION 1: DASHBOARD VIEW -->
+    <section class="grid grid-cols-1 md:grid-cols-12 gap-6 relative z-10 mb-12">
 
-        <!-- LEFT COLUMN (Stats & Rings) -->
+        <!-- LEFT COLUMN -->
         <div class="col-span-1 md:col-span-3 flex flex-col gap-6">
-            
-            <!-- Focus Card -->
-            <div class="glass-card p-6 flex flex-col justify-between h-40 relative overflow-hidden group cursor-default">
+            <!-- Focus Card (h-48) -->
+            <div class="glass-card p-6 flex flex-col justify-between h-48 shrink-0 relative overflow-hidden group cursor-default">
                 <div>
                     <span class="text-xs font-bold text-sub uppercase tracking-wider">Current Focus</span>
                     <div id="stat-mode" class="text-3xl font-bold text-main mt-1 capitalize tracking-tight">Loading...</div>
@@ -289,109 +333,139 @@
                 </div>
             </div>
 
-            <!-- Daily Goals -->
-            <div class="glass-card p-5 flex flex-col justify-center cursor-default min-h-[140px]">
+            <!-- Daily Goals (h-48) -->
+            <div class="glass-card p-5 flex flex-col justify-center cursor-default h-48 shrink-0">
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-sub uppercase tracking-wider">Daily Goals</span>
-                    <span id="goal-summary" class="text-[10px] font-bold text-accent-color opacity-80">Syncing…</span>
+                    <span class="text-[10px] font-bold text-accent-color opacity-80">2/3</span>
                 </div>
-                <div id="goals-list" class="space-y-3">
-                    <div class="text-[11px] font-medium text-sub">Loading goals from Obsidian…</div>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox" checked>
+                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Clear Email Inbox</span>
+                    </label>
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox" checked>
+                        <span class="text-xs font-medium text-sub group-hover:text-main transition-colors line-through opacity-70">Push Production Fix</span>
+                    </label>
+                    <label class="flex items-center gap-3 group cursor-pointer">
+                        <input type="checkbox" class="custom-checkbox">
+                        <span class="text-xs font-medium text-main group-hover:opacity-80 transition-colors">Review Pull Requests</span>
+                    </label>
                 </div>
             </div>
 
             <!-- Productivity Rings -->
-            <div class="glass-card p-6 flex flex-col items-center justify-center flex-1 cursor-default relative">
-                <h3 class="absolute top-6 left-6 text-sm font-bold text-main">Activity Rings</h3>
-                <div class="ring-container mt-4">
+            <div class="glass-card p-6 flex flex-col items-center justify-center h-80 shrink-0 cursor-default relative">
+                <h3 class="absolute top-6 left-6 text-xs font-bold text-main uppercase tracking-widest opacity-80">Activity</h3>
+                <div class="ring-container mt-2">
                     <canvas id="ringsCanvas" width="140" height="140"></canvas>
                 </div>
-                <div class="flex gap-4 mt-6" id="ring-legend">
+                <div class="flex gap-6 mt-6 justify-center w-full px-4">
                     <div class="flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-sub uppercase">Focus</span>
-                        <span class="text-xs font-bold" style="color: var(--ring-1)">4.2h</span>
+                        <span class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Focus</span>
+                        <span class="text-sm font-bold" style="color: var(--ring-1)">4.2h</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-sub uppercase">Work</span>
-                        <span class="text-xs font-bold" style="color: var(--ring-2)">6.5h</span>
+                        <span class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Work</span>
+                        <span class="text-sm font-bold" style="color: var(--ring-2)">6.5h</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-sub uppercase">Sys</span>
-                        <span class="text-xs font-bold" style="color: var(--ring-3)">8.1h</span>
+                        <span class="text-[9px] font-bold text-sub uppercase tracking-wider mb-1">Sys</span>
+                        <span class="text-sm font-bold" style="color: var(--ring-3)">8.1h</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- CENTER COLUMN (Charts & Top Apps) -->
+        <!-- CENTER COLUMN -->
         <div class="col-span-1 md:col-span-6 flex flex-col gap-6">
-            
             <!-- Line Chart -->
-            <div class="glass-card p-6 flex-[3] flex flex-col min-h-0">
+            <div class="glass-card p-6 h-[408px] flex flex-col shrink-0">
                 <div class="flex justify-between items-center mb-4">
-                    <div class="flex items-center gap-2">
-                        <h2 class="text-sm font-bold text-main">Activity Trend</h2>
-                        <span id="trend-now" class="hidden text-[10px] font-semibold text-sub bg-white/60 px-2 py-1 rounded-full"></span>
-                    </div>
+                    <h2 class="text-sm font-bold text-main">Activity Trend</h2>
                     <div class="bg-white/20 backdrop-blur-md p-0.5 rounded-lg flex text-[10px] font-semibold border border-white/20">
                         <button class="px-3 py-1 bg-white/80 shadow-sm rounded-md text-slate-900 cursor-pointer transition-colors">Today</button>
                         <button class="px-3 py-1 text-sub hover:text-main cursor-pointer transition-colors">Week</button>
                     </div>
                 </div>
-                <div class="relative w-full flex-1">
+                <div class="relative w-full flex-1 min-h-0">
                     <canvas id="lineChart"></canvas>
                 </div>
             </div>
 
             <!-- Top Apps -->
-            <div class="glass-card p-6 flex-[2] flex flex-col min-h-0 overflow-hidden">
-                <h2 class="text-sm font-bold text-main mb-4">Top Applications</h2>
-                <div class="flex-1 overflow-y-auto pr-2 space-y-3" id="top-apps-list">
+            <div class="glass-card p-6 h-80 flex flex-col overflow-hidden shrink-0">
+                <h2 class="text-sm font-bold text-main mb-4 flex items-center gap-2">
+                    Top Applications
+                    <span class="text-[10px] font-normal text-sub bg-white/30 px-1.5 py-0.5 rounded">Today</span>
+                </h2>
+                <div class="flex-1 overflow-y-auto pr-2 space-y-4 custom-scroll" id="top-apps-list">
                     <!-- Populated by JS -->
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT COLUMN (System & Logs) -->
-        <div class="col-span-1 md:col-span-3 flex flex-col gap-6 min-h-0">
-            
+        <!-- RIGHT COLUMN -->
+        <div class="col-span-1 md:col-span-3 flex flex-col gap-6">
             <!-- System Vitals -->
-            <div class="glass-card p-5 h-1/3 flex flex-col justify-between">
+            <div class="glass-card p-5 h-48 shrink-0 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="text-sm font-bold text-main">System Vitals</h2>
-                    <span id="system-chip" class="text-[10px] font-mono text-sub bg-black/5 px-2 py-0.5 rounded">Detecting…</span>
+                    <span class="text-[10px] font-mono text-sub bg-black/5 px-2 py-0.5 rounded">M2 CHIP</span>
                 </div>
-
                 <!-- CPU -->
                 <div class="space-y-1">
                     <div class="flex justify-between text-[10px] font-semibold text-sub">
-                        <span id="cpu-name" class="truncate">CPU</span>
-                        <span id="cpu-val">—</span>
+                        <span>CPU Load</span>
+                        <span id="cpu-val">12%</span>
                     </div>
                     <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
-                        <div id="cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        <div id="cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: 12%"></div>
                     </div>
                 </div>
-
                 <!-- RAM -->
                 <div class="space-y-1">
                     <div class="flex justify-between text-[10px] font-semibold text-sub">
-                        <span id="ram-label">Memory</span>
-                        <span id="ram-val">—</span>
+                        <span>Memory</span>
+                        <span id="ram-val">8.4 GB</span>
                     </div>
                     <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
-                        <div id="ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        <div id="ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: 45%"></div>
                     </div>
                 </div>
+            </div>
 
-                <!-- GPU -->
-                <div class="space-y-2 mt-2" id="gpu-list">
-                    <div class="bg-white/20 rounded-lg p-2 text-[11px] font-medium text-sub">Scanning GPUs…</div>
+            <!-- Music Widget -->
+            <div class="glass-card p-4 h-48 flex flex-col justify-center gap-4 relative overflow-hidden group shrink-0">
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-50"></div>
+                <div class="flex items-center gap-4 relative z-10">
+                    <div class="w-14 h-14 rounded-xl bg-black/20 flex items-center justify-center shadow-md relative overflow-hidden shrink-0">
+                         <div class="flex items-end gap-0.5 h-6 opacity-70">
+                             <div class="w-1 bg-white animate-[music-bar_1s_ease-in-out_infinite]"></div>
+                             <div class="w-1 bg-white animate-[music-bar_1.2s_ease-in-out_infinite] animation-delay-100"></div>
+                             <div class="w-1 bg-white animate-[music-bar_0.8s_ease-in-out_infinite] animation-delay-200"></div>
+                         </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div id="music-title" class="text-sm font-bold text-main truncate">Midnight City</div>
+                        <div id="music-artist" class="text-[10px] font-medium text-sub truncate uppercase tracking-wider">M83</div>
+                    </div>
+                </div>
+                
+                <div class="w-full bg-black/10 h-1 rounded-full overflow-hidden relative z-10">
+                    <div id="music-progress" class="h-full bg-accent-color w-0 transition-all duration-1000 ease-linear"></div>
+                </div>
+
+                <div class="flex items-center justify-center gap-4 text-main relative z-10">
+                    <button onclick="skipSong(-1)" class="hover:text-accent-color transition-colors p-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                    <button onclick="togglePlay()" id="play-btn" class="w-10 h-10 rounded-full bg-white/20 text-main flex items-center justify-center hover:scale-105 hover:bg-white/40 transition-all shadow-sm"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+                    <button onclick="skipSong(1)" class="hover:text-accent-color transition-colors p-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
                 </div>
             </div>
 
             <!-- Live Feed -->
-            <div class="glass-card flex-1 flex flex-col overflow-hidden">
+            <div class="glass-card h-80 flex flex-col overflow-hidden shrink-0">
                 <div class="p-5 border-b border-white/20 flex justify-between items-center bg-white/10 backdrop-blur-sm">
                     <h2 class="text-sm font-bold text-main">Live Feed</h2>
                     <div class="flex gap-1">
@@ -400,21 +474,185 @@
                         <span class="w-2 h-2 rounded-full bg-green-400 cursor-pointer hover:bg-green-500 transition-colors"></span>
                     </div>
                 </div>
-                <div class="flex-1 overflow-y-auto p-2" id="log-container">
+                <div class="flex-1 overflow-y-auto p-2 custom-scroll" id="log-container">
                     <table class="w-full text-left border-collapse">
-                        <tbody id="log-body">
-                            <!-- Logs injected here -->
-                        </tbody>
+                        <tbody id="log-body"></tbody>
                     </table>
                 </div>
             </div>
         </div>
+    </section>
 
-    </main>
+    <!-- SCROLL INDICATOR -->
+    <div class="flex justify-center mb-12 scroll-hint relative z-10 opacity-60">
+        <svg class="w-6 h-6 text-main" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+    </div>
+
+    <!-- SECTION 2: DEEP ANALYTICS -->
+    <section class="relative z-10 mb-12">
+        <h2 class="text-2xl font-bold text-main mb-6 px-2">Deep Analytics</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Weekly Analysis -->
+            <div class="glass-card p-6 lg:col-span-2 h-80 flex flex-col">
+                <h3 class="text-sm font-bold text-sub mb-4">Productivity vs Distraction (7 Days)</h3>
+                <div class="flex-1 relative w-full">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Focus Distribution -->
+            <div class="glass-card p-6 h-80 flex flex-col">
+                <h3 class="text-sm font-bold text-sub mb-4">Project Breakdown</h3>
+                <div class="space-y-4 overflow-y-auto custom-scroll pr-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-600 font-bold text-xs">P1</div>
+                            <span class="text-xs font-semibold text-main">Website Redesign</span>
+                        </div>
+                        <span class="text-xs font-bold text-sub">12.5h</span>
+                    </div>
+                    <div class="w-full bg-black/5 h-1 rounded-full"><div class="bg-blue-500 h-full rounded-full" style="width: 70%"></div></div>
+                    
+                    <div class="flex items-center justify-between mt-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-600 font-bold text-xs">P2</div>
+                            <span class="text-xs font-semibold text-main">Backend API</span>
+                        </div>
+                        <span class="text-xs font-bold text-sub">8.2h</span>
+                    </div>
+                    <div class="w-full bg-black/5 h-1 rounded-full"><div class="bg-purple-500 h-full rounded-full" style="width: 45%"></div></div>
+
+                    <div class="flex items-center justify-between mt-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-600 font-bold text-xs">P3</div>
+                            <span class="text-xs font-semibold text-main">Documentation</span>
+                        </div>
+                        <span class="text-xs font-bold text-sub">3.1h</span>
+                    </div>
+                    <div class="w-full bg-black/5 h-1 rounded-full"><div class="bg-orange-500 h-full rounded-full" style="width: 20%"></div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: COGNITIVE METRICS & GAMIFICATION -->
+    <section class="relative z-10 mb-12">
+        <h2 class="text-2xl font-bold text-main mb-6 px-2">Cognitive & Gamification</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Cognitive Metrics -->
+            <div class="glass-card p-6 flex flex-col gap-6">
+                <h3 class="text-sm font-bold text-sub uppercase tracking-wider">Flow State Tracker</h3>
+                <!-- Flow Chart -->
+                <div class="relative w-full h-40">
+                    <canvas id="flowChart"></canvas>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Context Switching -->
+                    <div class="bg-white/10 rounded-2xl p-4 border border-white/10">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] font-bold text-sub uppercase">Context Switches</span>
+                            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        </div>
+                        <div class="text-3xl font-bold text-main">42<span class="text-sm font-normal text-sub ml-1">/hr</span></div>
+                        <div class="text-[10px] text-red-400 mt-1 font-semibold">High fragmentation</div>
+                    </div>
+                    <!-- Odometer -->
+                    <div class="bg-white/10 rounded-2xl p-4 border border-white/10">
+                        <span class="text-[10px] font-bold text-sub uppercase block mb-2">Input Odometer</span>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex justify-between items-baseline">
+                                <span class="text-xl font-bold text-main tabular-nums">12,402</span>
+                                <span class="text-[10px] text-sub">Keys</span>
+                            </div>
+                            <div class="w-full bg-black/10 h-1 rounded-full"><div class="bg-accent-color h-full w-[70%] rounded-full"></div></div>
+                            <div class="flex justify-between items-baseline mt-1">
+                                <span class="text-xl font-bold text-main tabular-nums">1,287</span>
+                                <span class="text-[10px] text-sub">Meters</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gamification Hub -->
+            <div class="glass-card p-6 flex flex-col">
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <span class="text-[10px] font-bold text-accent-color uppercase tracking-wider">Level 12</span>
+                        <h3 class="text-xl font-bold text-main">Focus Guru</h3>
+                    </div>
+                    <span class="text-xs font-bold text-sub">2,450 / 3,000 XP</span>
+                </div>
+                
+                <!-- XP Bar -->
+                <div class="w-full bg-black/10 h-3 rounded-full mb-8 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+                    <div class="h-full bg-gradient-to-r from-blue-400 to-purple-500 rounded-full" style="width: 82%"></div>
+                </div>
+
+                <h3 class="text-sm font-bold text-sub uppercase tracking-wider mb-4">Achievement Rack</h3>
+                <div class="grid grid-cols-4 gap-4" id="badges-container">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 4: SESSION HISTORY -->
+    <section class="relative z-10 mb-6">
+        <h2 class="text-2xl font-bold text-main mb-6 px-2">Session History</h2>
+        <div class="glass-card overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="border-b border-white/20 bg-white/5">
+                        <tr>
+                            <th class="p-4 font-semibold text-sub">Time</th>
+                            <th class="p-4 font-semibold text-sub">Activity</th>
+                            <th class="p-4 font-semibold text-sub">Duration</th>
+                            <th class="p-4 font-semibold text-sub">Efficiency</th>
+                            <th class="p-4 font-semibold text-sub">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/10 text-main">
+                        <tr class="hover:bg-white/10 transition-colors">
+                            <td class="p-4">10:30 AM</td>
+                            <td class="p-4 font-medium">Deep Work: Coding</td>
+                            <td class="p-4">2h 15m</td>
+                            <td class="p-4"><span class="text-green-500 font-bold">98%</span></td>
+                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-green-500/20 text-green-600 text-xs font-bold uppercase">Completed</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/10 transition-colors">
+                            <td class="p-4">01:15 PM</td>
+                            <td class="p-4 font-medium">Team Meeting</td>
+                            <td class="p-4">45m</td>
+                            <td class="p-4"><span class="text-yellow-500 font-bold">75%</span></td>
+                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-blue-500/20 text-blue-600 text-xs font-bold uppercase">Logged</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/10 transition-colors">
+                            <td class="p-4">02:30 PM</td>
+                            <td class="p-4 font-medium">Research</td>
+                            <td class="p-4">1h 20m</td>
+                            <td class="p-4"><span class="text-green-500 font-bold">92%</span></td>
+                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-green-500/20 text-green-600 text-xs font-bold uppercase">Completed</span></td>
+                        </tr>
+                         <tr class="hover:bg-white/10 transition-colors">
+                            <td class="p-4">04:00 PM</td>
+                            <td class="p-4 font-medium">Email & Comms</td>
+                            <td class="p-4">30m</td>
+                            <td class="p-4"><span class="text-red-500 font-bold">60%</span></td>
+                            <td class="p-4"><span class="px-2 py-1 rounded-md bg-gray-500/20 text-gray-600 text-xs font-bold uppercase">Archived</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 
     <script>
         // CONFIG
-        const DEMO_MODE = false;
+        const DEMO_MODE = true; 
 
         // --- THEMES ---
         const THEMES = {
@@ -424,7 +662,8 @@
                 main: '#1d1d1f', sub: '#6e6e73', accent: '#34c759',
                 r1: '#ff3b30', r2: '#34c759', r3: '#007aff',
                 card: 'rgba(255, 255, 255, 0.65)', border: 'rgba(255, 255, 255, 0.4)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.85)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.85)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.6)'
             },
             midnight: {
                 name: 'Midnight 🌑',
@@ -432,7 +671,8 @@
                 main: '#e2e8f0', sub: '#94a3b8', accent: '#38bdf8',
                 r1: '#38bdf8', r2: '#818cf8', r3: '#c084fc',
                 card: 'rgba(30, 41, 59, 0.7)', border: 'rgba(255, 255, 255, 0.1)',
-                input: 'rgba(0, 0, 0, 0.4)', menu: 'rgba(30, 41, 59, 0.95)', hover: 'rgba(255,255,255,0.1)'
+                input: 'rgba(0, 0, 0, 0.4)', menu: 'rgba(30, 41, 59, 0.95)', hover: 'rgba(255,255,255,0.1)',
+                header: 'rgba(30, 41, 59, 0.7)'
             },
             cyberpunk: {
                 name: 'Cyberpunk 🤖',
@@ -440,7 +680,8 @@
                 main: '#00ff9f', sub: '#d600ff', accent: '#f6ff00',
                 r1: '#00e5ff', r2: '#d600ff', r3: '#f6ff00',
                 card: 'rgba(10, 10, 10, 0.8)', border: 'rgba(0, 255, 159, 0.3)',
-                input: 'rgba(0, 0, 0, 0.6)', menu: 'rgba(20, 20, 20, 0.95)', hover: 'rgba(0, 255, 159, 0.2)'
+                input: 'rgba(0, 0, 0, 0.6)', menu: 'rgba(20, 20, 20, 0.95)', hover: 'rgba(0, 255, 159, 0.2)',
+                header: 'rgba(10, 10, 10, 0.8)'
             },
             forest: {
                 name: 'Forest 🌲',
@@ -448,7 +689,8 @@
                 main: '#ecfdf5', sub: '#a7f3d0', accent: '#f59e0b',
                 r1: '#10b981', r2: '#f59e0b', r3: '#8b5cf6',
                 card: 'rgba(6, 78, 59, 0.6)', border: 'rgba(255, 255, 255, 0.15)',
-                input: 'rgba(0, 0, 0, 0.2)', menu: 'rgba(6, 78, 59, 0.9)', hover: 'rgba(255,255,255,0.1)'
+                input: 'rgba(0, 0, 0, 0.2)', menu: 'rgba(6, 78, 59, 0.9)', hover: 'rgba(255,255,255,0.1)',
+                header: 'rgba(6, 78, 59, 0.7)'
             },
             ocean: {
                 name: 'Ocean 🌊',
@@ -456,7 +698,8 @@
                 main: '#f0f9ff', sub: '#b3e5fc', accent: '#00e5ff',
                 r1: '#00bcd4', r2: '#4dd0e1', r3: '#80deea',
                 card: 'rgba(20, 40, 60, 0.6)', border: 'rgba(0, 229, 255, 0.2)',
-                input: 'rgba(0, 0, 0, 0.3)', menu: 'rgba(20, 40, 60, 0.9)', hover: 'rgba(255,255,255,0.1)'
+                input: 'rgba(0, 0, 0, 0.3)', menu: 'rgba(20, 40, 60, 0.9)', hover: 'rgba(255,255,255,0.1)',
+                header: 'rgba(20, 40, 60, 0.7)'
             },
             sunset: {
                 name: 'Sunset 🌅',
@@ -464,7 +707,8 @@
                 main: '#5d4037', sub: '#8d6e63', accent: '#ff6f00',
                 r1: '#ff9f43', r2: '#ff6b6b', r3: '#54a0ff',
                 card: 'rgba(255, 255, 255, 0.5)', border: 'rgba(255, 255, 255, 0.6)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.6)'
             },
             coffee: {
                 name: 'Coffee ☕',
@@ -472,7 +716,8 @@
                 main: '#3e2723', sub: '#5d4037', accent: '#8d6e63',
                 r1: '#795548', r2: '#a1887f', r3: '#d7ccc8',
                 card: 'rgba(255, 250, 240, 0.7)', border: 'rgba(121, 85, 72, 0.2)',
-                input: 'rgba(255, 255, 255, 0.5)', menu: 'rgba(255, 248, 240, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.5)', menu: 'rgba(255, 248, 240, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 250, 240, 0.7)'
             },
             lavender: {
                 name: 'Lavender 💜',
@@ -480,7 +725,8 @@
                 main: '#4a148c', sub: '#7b1fa2', accent: '#aa00ff',
                 r1: '#9c27b0', r2: '#ba68c8', r3: '#e1bee7',
                 card: 'rgba(255, 255, 255, 0.5)', border: 'rgba(255, 255, 255, 0.8)',
-                input: 'rgba(255, 255, 255, 0.5)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.5)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.6)'
             },
             candy: {
                 name: 'Candy 🍬',
@@ -488,7 +734,8 @@
                 main: '#5e3a48', sub: '#916b7a', accent: '#ff6b6b',
                 r1: '#ff9a9e', r2: '#a18cd1', r3: '#fbc2eb',
                 card: 'rgba(255, 255, 255, 0.5)', border: 'rgba(255, 255, 255, 0.6)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.6)'
             },
             barbie: {
                 name: 'Barbie 💅',
@@ -496,7 +743,8 @@
                 main: '#d63384', sub: '#e685b5', accent: '#e83e8c',
                 r1: '#ff007f', r2: '#ff69b4', r3: '#ffc0cb',
                 card: 'rgba(255, 255, 255, 0.7)', border: 'rgba(255, 255, 255, 0.8)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.8)'
             },
             christmas: {
                 name: 'Christmas 🎄',
@@ -504,7 +752,8 @@
                 main: '#1a4c30', sub: '#5c7c60', accent: '#d42426',
                 r1: '#d42426', r2: '#2ecc71', r3: '#f1c40f',
                 card: 'rgba(255, 255, 255, 0.85)', border: 'rgba(212, 36, 38, 0.1)',
-                input: 'rgba(255, 255, 255, 0.6)', menu: 'rgba(255, 255, 255, 0.95)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.6)', menu: 'rgba(255, 255, 255, 0.95)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.8)'
             },
             halloween: {
                 name: 'Halloween 🎃',
@@ -512,7 +761,8 @@
                 main: '#fcd5ce', sub: '#e0aaff', accent: '#ff9e00',
                 r1: '#ff9e00', r2: '#9d4edd', r3: '#70e000',
                 card: 'rgba(20, 10, 30, 0.6)', border: 'rgba(255, 158, 0, 0.2)',
-                input: 'rgba(0, 0, 0, 0.3)', menu: 'rgba(20, 10, 30, 0.9)', hover: 'rgba(255,255,255,0.1)'
+                input: 'rgba(0, 0, 0, 0.3)', menu: 'rgba(20, 10, 30, 0.9)', hover: 'rgba(255,255,255,0.1)',
+                header: 'rgba(20, 10, 30, 0.8)'
             },
             winter: {
                 name: 'Winter ❄️',
@@ -520,7 +770,8 @@
                 main: '#2c3e50', sub: '#7f8c8d', accent: '#3498db',
                 r1: '#3498db', r2: '#a8d0e6', r3: '#d6eaf8',
                 card: 'rgba(255, 255, 255, 0.6)', border: 'rgba(255, 255, 255, 0.8)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.7)'
             },
             summer: {
                 name: 'Summer ☀️',
@@ -528,7 +779,8 @@
                 main: '#e65100', sub: '#fb8c00', accent: '#ff6f00',
                 r1: '#ff6f00', r2: '#ffca28', r3: '#4fc3f7',
                 card: 'rgba(255, 255, 255, 0.6)', border: 'rgba(255, 255, 255, 0.6)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 255, 255, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 255, 255, 0.7)'
             },
             galaxy: {
                 name: 'Galaxy 🌌',
@@ -536,7 +788,8 @@
                 main: '#ffffff', sub: '#a0c4ff', accent: '#bc13fe',
                 r1: '#bc13fe', r2: '#4facfe', r3: '#00f2fe',
                 card: 'rgba(20, 20, 40, 0.6)', border: 'rgba(100, 200, 255, 0.2)',
-                input: 'rgba(0, 0, 0, 0.4)', menu: 'rgba(10, 10, 30, 0.95)', hover: 'rgba(255, 255, 255, 0.1)'
+                input: 'rgba(0, 0, 0, 0.4)', menu: 'rgba(10, 10, 30, 0.95)', hover: 'rgba(255, 255, 255, 0.1)',
+                header: 'rgba(10, 10, 30, 0.8)'
             },
             terminal: {
                 name: 'Terminal 📟',
@@ -544,7 +797,8 @@
                 main: '#00ff00', sub: '#008f11', accent: '#00ff00',
                 r1: '#00ff00', r2: '#00cc00', r3: '#008000',
                 card: 'rgba(0, 20, 0, 0.8)', border: 'rgba(0, 255, 0, 0.4)',
-                input: 'rgba(0, 20, 0, 0.8)', menu: 'rgba(0, 15, 0, 0.95)', hover: 'rgba(0, 255, 0, 0.1)'
+                input: 'rgba(0, 20, 0, 0.8)', menu: 'rgba(0, 15, 0, 0.95)', hover: 'rgba(0, 255, 0, 0.1)',
+                header: 'rgba(0, 20, 0, 0.9)'
             },
             desert: {
                 name: 'Desert 🌵',
@@ -552,7 +806,8 @@
                 main: '#4e342e', sub: '#795548', accent: '#bf360c',
                 r1: '#d84315', r2: '#fb8c00', r3: '#fdd835',
                 card: 'rgba(255, 245, 230, 0.6)', border: 'rgba(255, 200, 150, 0.5)',
-                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 248, 240, 0.9)', hover: 'rgba(0,0,0,0.05)'
+                input: 'rgba(255, 255, 255, 0.4)', menu: 'rgba(255, 248, 240, 0.9)', hover: 'rgba(0,0,0,0.05)',
+                header: 'rgba(255, 245, 230, 0.8)'
             }
         };
 
@@ -615,6 +870,7 @@
             root.style.setProperty('--input-bg', t.input);
             root.style.setProperty('--menu-bg', t.menu || 'rgba(255, 255, 255, 0.85)');
             root.style.setProperty('--hover-bg', t.hover || 'rgba(0,0,0,0.05)');
+            root.style.setProperty('--header-bg', t.header || 'rgba(255, 255, 255, 0.6)');
 
             // Handle RGB Mode for Cyberpunk
             const bar = document.getElementById('stat-bar');
@@ -637,10 +893,10 @@
 
             // Re-render rings to pick up new colors
             drawRings();
-            // Re-render chart to pick up text/line colors
-            if (lineChart) updateLine(lineTimelineData); 
+            // Re-render charts
+            updateCharts();
             // Re-render apps to fix background boxes color
-            renderTopApps(latestEntries);
+            renderTopApps();
         }
 
         // --- DECORATION LOGIC ---
@@ -728,443 +984,355 @@
         }
 
         // --- RINGS ---
-        let ringSegments = [
-            { label: 'Focus', percent: 0.75, colorVar: '--ring-1', valueText: '4.2h' },
-            { label: 'Work', percent: 0.55, colorVar: '--ring-2', valueText: '6.5h' },
-            { label: 'Sys', percent: 0.85, colorVar: '--ring-3', valueText: '8.1h' },
-        ];
-
         function drawRings() {
             const canvas = document.getElementById('ringsCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
+            
+            // Handle High DPI
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = 140 * dpr;
+            canvas.height = 140 * dpr;
+            canvas.style.width = "140px";
+            canvas.style.height = "140px";
+            ctx.scale(dpr, dpr);
+            
+            const w = 140;
+            const h = 140;
             const center = w / 2;
             
             ctx.clearRect(0, 0, w, h);
+            ctx.lineCap = 'round';
             
             // Get Colors from CSS Vars
             const styles = getComputedStyle(document.documentElement);
+            const r1 = styles.getPropertyValue('--ring-1').trim();
+            const r2 = styles.getPropertyValue('--ring-2').trim();
+            const r3 = styles.getPropertyValue('--ring-3').trim();
 
-            const rings = ringSegments;
-            const radii = [55, 40, 25];
+            const rings = [
+                { r: 55, color: r1, percent: 0.75 },
+                { r: 40, color: r2, percent: 0.55 },
+                { r: 25, color: r3, percent: 0.85 }
+            ];
 
-            rings.forEach((ring, idx) => {
-                const color = styles.getPropertyValue(ring.colorVar).trim();
-                const r = radii[idx];
-
+            rings.forEach(ring => {
                 // Track Background
                 ctx.beginPath();
-                ctx.arc(center, center, r, 0, 2 * Math.PI);
-                ctx.strokeStyle = color;
+                ctx.arc(center, center, ring.r, 0, 2 * Math.PI);
+                ctx.strokeStyle = ring.color;
                 ctx.globalAlpha = 0.2;
                 ctx.lineWidth = 10;
-                ctx.lineCap = 'round';
                 ctx.stroke();
 
                 // Foreground
                 ctx.globalAlpha = 1.0;
                 ctx.beginPath();
-                ctx.strokeStyle = color;
-                ctx.arc(center, center, r, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * Math.min(Math.max(ring.percent, 0), 1)));
+                // Start from top (-90deg)
+                ctx.arc(center, center, ring.r, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * ring.percent));
                 ctx.stroke();
             });
-
-            // Update legend
-            const legend = document.getElementById('ring-legend');
-            if (legend) {
-                legend.innerHTML = rings.map((ring, idx) => {
-                    const color = styles.getPropertyValue(ring.colorVar).trim();
-                    return `
-                        <div class="flex flex-col items-center">
-                            <span class="text-[10px] font-bold text-sub uppercase">${ring.label}</span>
-                            <span class="text-xs font-bold" style="color: ${color}">${ring.valueText}</span>
-                        </div>
-                    `;
-                }).join('');
-            }
         }
 
         // --- UTILS ---
         let lineChart = null;
-        let lineTimelineData = [];
-        let latestEntries = [];
+        let barChart = null;
+        let flowChart = null;
 
         function getMockTopApps() {
             return [
-                { exe: "Visual Studio Code", minutes: 260 },
-                { exe: "Google Chrome", minutes: 130 },
-                { exe: "Slack", minutes: 45 },
-                { exe: "Terminal", minutes: 30 },
-                { exe: "Spotify", minutes: 15 }
+                { name: "Visual Studio Code", cat: "Coding", percent: 0.8, time: "4h 20m", color: "from-blue-500 to-blue-600" },
+                { name: "Google Chrome", cat: "Browsing", percent: 0.4, time: "2h 10m", color: "from-yellow-400 to-orange-500" },
+                { name: "Slack", cat: "Chat", percent: 0.2, time: "45m", color: "from-purple-500 to-pink-500" },
+                { name: "Terminal", cat: "System", percent: 0.15, time: "30m", color: "from-gray-700 to-gray-900" },
+                { name: "Spotify", cat: "Media", percent: 0.1, time: "15m", color: "from-green-400 to-emerald-600" }
             ];
         }
 
-        function formatMinutesFriendly(minutes) {
-            const value = minutes || 0;
-            if (value >= 60) return (value / 60).toFixed(1) + "h";
-            return Math.max(1, Math.round(value)) + "m";
-        }
-
-        function toLocaleTime(ts) {
-            const d = ts instanceof Date ? ts : new Date(ts);
-            if (isNaN(d.getTime())) return '';
-            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        function buildTopApps(data) {
-            const entries = Array.isArray(data) && data.length ? data : getMockTopApps();
-            const totalMinutes = entries.reduce((sum, app) => sum + (app.minutes || 0), 0) || 1;
-            const colorPool = ['bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-slate-700', 'bg-green-500', 'bg-orange-500'];
-            return entries
-                .sort((a, b) => (b.minutes || 0) - (a.minutes || 0))
-                .slice(0, 5)
-                .map((app, idx) => ({
-                    name: app.exe || app.name || 'Unknown',
-                    cat: '',
-                    percent: (app.minutes || 0) / totalMinutes,
-                    time: formatMinutesFriendly(app.minutes || 0),
-                    color: colorPool[idx % colorPool.length]
-                }));
-        }
-
-        function renderTopApps(data) {
+        function renderTopApps() {
             const container = document.getElementById('top-apps-list');
             if (!container) return;
-            const apps = buildTopApps(data);
+            
+            const apps = getMockTopApps();
             container.innerHTML = apps.map(app => `
-                <div class="flex items-center gap-3 group">
-                    <div class="w-8 h-8 rounded-lg ${app.color} flex items-center justify-center text-white shadow-sm text-xs font-bold">
+                <div class="flex items-center gap-3 group cursor-default">
+                    <div class="w-10 h-10 squircle bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-sm text-sm font-bold shrink-0">
                         ${app.name.charAt(0)}
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="text-xs font-semibold text-main truncate" title="${app.name}">${app.name}</span>
+                            <span class="text-xs font-semibold text-main truncate">${app.name}</span>
                             <span class="text-[10px] font-medium text-sub">${app.time}</span>
                         </div>
-                        <div class="w-full bg-slate-400/20 h-1.5 rounded-full overflow-hidden">
-                            <div class="h-full ${app.color} rounded-full" style="width: ${Math.min(app.percent * 100, 100)}%"></div>
+                        <div class="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r ${app.color} rounded-full" style="width: ${app.percent * 100}%"></div>
                         </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        function getMockLatest() {
-            const now = new Date();
-            return Array.from({ length: 10 }, (_, idx) => {
-                const ts = new Date(now.getTime() - idx * 60 * 1000);
-                return {
-                    ts: ts.toISOString(),
-                    ts_display: toLocaleTime(ts),
-                    exe: idx % 2 === 0 ? 'code.exe' : 'chrome.exe',
-                    title: idx % 2 === 0 ? 'Editing SelfObserver' : 'Reading docs',
-                    mode: idx % 2 === 0 ? 'coding' : 'browsing',
-                    confidence: 0.9
-                };
-            });
+        // Render Badges
+        function renderBadges() {
+            const container = document.getElementById("badges-container");
+            if (!container) return;
+
+            const badges = [
+                { name: "Inbox Zero", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z", earned: true },
+                { name: "Deep Work", icon: "M13 10V3L4 14h7v7l9-11h-7z", earned: true },
+                { name: "Night Owl", icon: "M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z", earned: true },
+                { name: "Early Bird", icon: "M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707", earned: false },
+                { name: "Zen Master", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8", earned: false },
+                { name: "Code Warrior", icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4", earned: true },
+                { name: "Streak King", icon: "M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z", earned: false },
+                { name: "Clean Desk", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10", earned: true },
+            ];
+
+            container.innerHTML = badges.map(b => `
+                <div class="aspect-square rounded-xl badge-slot flex items-center justify-center relative group cursor-help ${b.earned ? 'earned' : ''}">
+                    <svg class="w-6 h-6 badge-icon text-main" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="${b.icon}"></path>
+                    </svg>
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                        ${b.name} ${b.earned ? '✓' : ''}
+                    </div>
+                </div>
+            `).join('');
         }
 
-        function getMockStatsDay() {
-            return { coding: 240, browsing: 120, chatting: 45, idle: 30 };
-        }
+        // Music Logic
+        const SONGS = [
+            { title: "Midnight City", artist: "M83" },
+            { title: "Nightcall", artist: "Kavinsky" },
+            { title: "Blinding Lights", artist: "The Weeknd" },
+            { title: "Lofi Study", artist: "Chillhop" },
+            { title: "Cyberpunk 2077", artist: "Hyper" }
+        ];
+        let currentSongIdx = 0;
+        let isPlaying = true;
+        let musicProgress = 0;
 
-        function getMockStatsHour() {
-            const now = Date.now();
-            return Array.from({ length: 12 }, (_, idx) => ({
-                ts: new Date(now - idx * 5 * 60 * 1000).toISOString(),
-                mode: idx % 2 === 0 ? 'coding' : 'browsing'
-            }));
-        }
-
-        function getMockGoals() {
-            return {
-                goals: [
-                    { title: "Ship dashboard polish", due: new Date(Date.now() + 86400000).toISOString().slice(0, 10), source: "Daily.md" },
-                    { title: "Triage inbox and Slack", source: "Inbox.md" },
-                    { title: "Prep sprint notes", due: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), source: "Sprint.md" },
-                ]
-            };
-        }
-
-        function getMockSystem() {
-            return {
-                cpu_model: 'Apple M2',
-                cpu_load: Math.floor(Math.random() * 40) + 10,
-                cpu_cores: 10,
-                ram_used_gb: 8.4,
-                ram_total_gb: 16,
-                ram_percent: 52,
-                gpus: [{ name: 'Integrated GPU', load: 38, memory_used_gb: 2.1, memory_total_gb: 4 }],
-                warnings: [],
-            };
-        }
-
-        async function fetchData(endpoint, fallback) {
-            if (DEMO_MODE) return fallback();
-            try {
-                const res = await fetch(endpoint, { cache: 'no-store' });
-                return await res.json();
-            } catch (e) {
-                console.error("API Error", e);
-                return fallback();
+        function updateMusicProgress() {
+            if (!isPlaying) return;
+            musicProgress += 1;
+            if (musicProgress > 100) {
+                musicProgress = 0;
+                skipSong(1);
             }
+            const bar = document.getElementById("music-progress");
+            if(bar) bar.style.width = musicProgress + "%";
         }
 
-        function updateRingData(stats) {
-            const entries = Object.entries(stats || {});
-            if (!entries.length) return;
-            entries.sort((a, b) => b[1] - a[1]);
-            const total = entries.reduce((sum, [, v]) => sum + v, 0) || 1;
-            const labels = ['Focus', 'Work', 'Sys'];
-            ringSegments = entries.slice(0, 3).map(([mode, minutes], idx) => ({
-                label: labels[idx] || mode,
-                percent: minutes / total,
-                colorVar: [`--ring-1`, `--ring-2`, `--ring-3`][idx] || '--ring-1',
-                valueText: formatMinutesFriendly(minutes)
-            }));
-            drawRings();
+        function skipSong(dir) {
+            currentSongIdx += dir;
+            if (currentSongIdx < 0) currentSongIdx = SONGS.length - 1;
+            if (currentSongIdx >= SONGS.length) currentSongIdx = 0;
+            
+            const song = SONGS[currentSongIdx];
+            document.getElementById("music-title").innerText = song.title;
+            document.getElementById("music-artist").innerText = song.artist;
+            musicProgress = 0;
+            document.getElementById("music-progress").style.width = "0%";
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const btn = document.getElementById("play-btn");
+            if (isPlaying) {
+                 btn.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+            } else {
+                 btn.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+            }
         }
 
         async function updateDashboard() {
-            const latestData = await fetchData("/api/latest", getMockLatest);
-            const statsDay = await fetchData("/api/stats/day", getMockStatsDay);
-            const statsHour = await fetchData("/api/stats/hour", getMockStatsHour);
-            const statsApps = await fetchData("/api/stats/apps", getMockTopApps);
+            updateCharts();
 
-            latestEntries = Array.isArray(latestData) ? latestData : [];
-
-            // 1. Update pie/ring data
-            updateRingData(statsDay);
-
-            // 2. Update Line Chart
-            const timeline = Array.isArray(statsHour) ? statsHour : [];
-            const grouped = new Map();
-            const now = new Date();
-            timeline.forEach(item => {
-                const ts = new Date(item.ts);
-                const minutesAgo = Math.floor((now - ts) / 600000); // 10-minute buckets
-                if (minutesAgo >= 0 && minutesAgo < 6) {
-                    const key = 5 - minutesAgo;
-                    grouped.set(key, (grouped.get(key) || 0) + 1);
-                }
-            });
-            lineTimelineData = Array.from({ length: 6 }, (_, idx) => ({
-                ts: new Date(now.getTime() - (5 - idx) * 10 * 60000),
-                val: grouped.get(idx) || 0
-            }));
-            updateLine(lineTimelineData);
-
-            // 3. Update Top Apps from observed executables
-            renderTopApps(statsApps);
-
-            // If there is no recent activity, keep the rest of the UI readable
-            if (!latestEntries.length) {
-                const tbody = document.getElementById("log-body");
-                if (tbody) {
-                    tbody.innerHTML = `<tr><td class="py-4 px-3 text-[11px] text-sub">No recent activity logged.</td></tr>`;
-                }
-                const modeEl = document.getElementById("stat-mode");
-                if (modeEl) modeEl.innerText = "Idle";
-                return;
+            // Update System Vitals (Mock)
+            const cpu = Math.floor(Math.random() * 30) + 5;
+            const ram = (Math.random() * 2 + 8).toFixed(1);
+            const cpuBar = document.getElementById('cpu-bar');
+            const ramBar = document.getElementById('ram-bar');
+            
+            if (cpuBar) {
+                document.getElementById('cpu-val').innerText = cpu + "%";
+                cpuBar.style.width = cpu + "%";
+            }
+            if (ramBar) {
+                document.getElementById('ram-val').innerText = ram + " GB";
+                ramBar.style.width = ((ram / 16) * 100) + "%"; 
+            }
+            
+            // Update Logs (Mock)
+            const logContainer = document.getElementById("log-body");
+            if (logContainer) {
+                const now = new Date();
+                const time = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                const activities = ["Coding in VS Code", "Browsing StackOverflow", "Slack Message", "Spotify Change", "Terminal Command", "Git Commit", "File Save"];
+                const act = activities[Math.floor(Math.random() * activities.length)];
+                
+                const row = `
+                    <tr class="hover:bg-white/10 transition-colors rounded-lg group animate-[fadeIn_0.5s_ease-in-out]">
+                        <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${time}</td>
+                        <td class="py-2 px-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                <span class="text-xs font-semibold text-main truncate">${act}</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                logContainer.insertAdjacentHTML('afterbegin', row);
+                if (logContainer.children.length > 20) logContainer.lastElementChild.remove();
             }
 
-            // 1. Update Hero Stats
-            const current = latestEntries[0];
+            // Update Header Stats
             const modeEl = document.getElementById("stat-mode");
+            if (modeEl) modeEl.innerText = "Deep Work";
+            
             const confEl = document.getElementById("stat-conf");
+            if (confEl) confEl.innerText = "92%";
+            
             const barEl = document.getElementById("stat-bar");
-            const trendNow = document.getElementById("trend-now");
-
-            if (modeEl) modeEl.innerText = current.mode || 'Unknown';
-            if (confEl) confEl.innerText = ((current.confidence || 0) * 100).toFixed(0) + "%";
             if (barEl) {
-                barEl.style.width = ((current.confidence || 0) * 100) + "%";
+                barEl.style.width = "92%";
                 if (!barEl.classList.contains('rgb-bar')) {
                     barEl.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
                 }
             }
-
-            if (trendNow) {
-                const exe = current.exe || 'Unknown app';
-                const mode = current.mode ? ` · ${current.mode}` : '';
-                trendNow.innerText = `Now: ${exe}${mode}`;
-                trendNow.classList.remove('hidden');
-            }
-
-            // 4. Update Log Table
-            const tbody = document.getElementById("log-body");
-            if (tbody) {
-                tbody.innerHTML = "";
-                latestEntries.forEach(d => {
-                    const tsDisplay = d.ts_display || toLocaleTime(d.ts);
-                    const row = `
-                    <tr class="hover:bg-white/10 transition-colors rounded-lg group animate-[fadeIn_0.5s_ease-in-out]">
-                        <td class="py-2.5 px-3 text-[10px] font-medium text-sub tabular-nums w-14 align-top pt-3">${tsDisplay}</td>
-                        <td class="py-2 px-1">
-                            <div class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                <div class="flex flex-col">
-                                    <span class="text-xs font-semibold text-main truncate">${d.exe || 'Unknown'}</span>
-                                    <span class="text-[10px] text-sub truncate max-w-[180px] opacity-80">${d.title || ''}</span>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', row);
-                });
-            }
         }
 
-        function updateSystemVitals(snapshot) {
-            const chip = document.getElementById('system-chip');
-            if (chip) chip.innerText = snapshot.cpu_model || 'Unknown CPU';
-
-            const cpuName = document.getElementById('cpu-name');
-            const coresLabel = snapshot.cpu_cores ? ` · ${snapshot.cpu_cores} cores` : '';
-            if (cpuName) cpuName.innerText = (snapshot.cpu_model || 'CPU') + coresLabel;
-
-            const load = snapshot.cpu_load;
-            const cpuVal = document.getElementById('cpu-val');
-            const cpuBar = document.getElementById('cpu-bar');
-            if (cpuVal) cpuVal.innerText = load != null ? `${Math.round(load)}%` : '—';
-            if (cpuBar) cpuBar.style.width = load != null ? `${Math.min(100, load)}%` : '0%';
-
-            const ramLabel = document.getElementById('ram-label');
-            const ramVal = document.getElementById('ram-val');
-            const ramBar = document.getElementById('ram-bar');
-            const total = snapshot.ram_total_gb;
-            const used = snapshot.ram_used_gb;
-            const percent = snapshot.ram_percent;
-            if (ramLabel) ramLabel.innerText = total ? `Memory (${total.toFixed(1)} GB)` : 'Memory';
-            if (ramVal) {
-                const usedText = used != null ? used.toFixed(1) : '—';
-                const totalText = total != null ? total.toFixed(1) : '—';
-                const pctText = percent != null ? `${Math.round(percent)}%` : '';
-                ramVal.innerText = `${usedText}${total ? ' / ' + totalText : ''} GB ${pctText}`.trim();
-            }
-            if (ramBar) ramBar.style.width = percent != null ? `${Math.min(100, percent)}%` : '0%';
-
-            const gpuList = document.getElementById('gpu-list');
-            if (gpuList) {
-                const gpus = snapshot.gpus || [];
-                if (!gpus.length) {
-                    gpuList.innerHTML = '<div class="bg-white/20 rounded-lg p-2 text-[11px] font-medium text-sub">No GPU detected</div>';
-                } else {
-                    gpuList.innerHTML = gpus.map(g => {
-                        const loadText = g.load != null ? `${Math.round(g.load)}%` : '—';
-                        const memText = g.memory_used_gb != null && g.memory_total_gb != null
-                            ? `${g.memory_used_gb.toFixed(1)} / ${g.memory_total_gb.toFixed(1)} GB`
-                            : '';
-                        return `
-                            <div class="bg-white/20 rounded-lg p-2 flex justify-between items-center">
-                                <div class="flex flex-col min-w-0">
-                                    <span class="text-[11px] font-semibold text-main truncate">${g.name || 'GPU'}</span>
-                                    <span class="text-[10px] text-sub">${memText}</span>
-                                </div>
-                                <span class="text-[11px] font-bold text-main">${loadText}</span>
-                            </div>
-                        `;
-                    }).join('');
-                }
-            }
-        }
-
-        function renderGoals(goals) {
-            const list = document.getElementById('goals-list');
-            const summary = document.getElementById('goal-summary');
-            if (!list) return;
-            const items = Array.isArray(goals) ? goals : [];
-            if (summary) summary.innerText = items.length ? `${items.length} upcoming` : '0 upcoming';
-
-            if (!items.length) {
-                list.innerHTML = '<div class="text-[11px] font-medium text-sub">No open tasks found in Obsidian.</div>';
-                return;
-            }
-
-            list.innerHTML = items.map(goal => {
-                const due = goal.due ? `Due ${goal.due}` : (goal.source || 'Captured from Obsidian');
-                const isDone = goal.done ? 'checked' : '';
-                return `
-                    <label class="flex items-center gap-3 group cursor-pointer">
-                        <input type="checkbox" class="custom-checkbox" ${isDone} disabled>
-                        <div class="flex flex-col min-w-0">
-                            <span class="text-xs font-semibold text-main truncate">${goal.title || 'Untitled goal'}</span>
-                            <span class="text-[10px] font-medium text-sub truncate">${due}</span>
-                        </div>
-                    </label>
-                `;
-            }).join('');
-        }
-
-        async function refreshSystemVitals() {
-            const snapshot = await fetchData('/api/system', getMockSystem);
-            updateSystemVitals(snapshot || {});
-        }
-
-        async function refreshGoals() {
-            const data = await fetchData('/api/goals', getMockGoals);
-            renderGoals((data && data.goals) ? data.goals : []);
-        }
-
-        function updateLine(data) {
-            // If Chart.js failed to load (offline / blocked CDN), skip quietly so the
-            // rest of the dashboard can still render without the line chart.
-            if (typeof Chart === 'undefined') return;
-
-            const canvas = document.getElementById("lineChart");
-            if (!canvas) return;
-            const ctx = canvas.getContext("2d");
-            
-            const labels = data.map(d => toLocaleTime(d.ts));
-            const values = data.map(d => d.val);
-
+        function updateCharts() {
             // Get Theme Colors
             const styles = getComputedStyle(document.documentElement);
             const mainColor = styles.getPropertyValue('--text-main').trim();
-            
-            if (lineChart) {
-                lineChart.data.labels = labels;
-                lineChart.data.datasets[0].data = values;
-                lineChart.data.datasets[0].borderColor = mainColor;
-                lineChart.data.datasets[0].pointBorderColor = mainColor;
-                lineChart.update('none');
-            } else {
-                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(0,0,0,0.1)');
-                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            const subColor = styles.getPropertyValue('--text-sub').trim();
+            const accentColor = styles.getPropertyValue('--accent-color').trim();
 
-                lineChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Activity',
-                            data: values,
-                            borderColor: mainColor,
-                            backgroundColor: gradient,
-                            borderWidth: 2,
-                            tension: 0.4,
-                            pointRadius: 0,
-                            pointHoverRadius: 6,
-                            pointBackgroundColor: '#fff',
-                            pointBorderColor: mainColor,
-                            pointBorderWidth: 2,
-                            fill: true
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: '#86868b' } },
-                            y: { display: false }
+            // 1. Line Chart
+            const lineCanvas = document.getElementById("lineChart");
+            if (lineCanvas) {
+                const ctx = lineCanvas.getContext("2d");
+                const timelineData = Array.from({length: 6}, (_, i) => Math.floor(Math.random() * 50) + 20);
+                const labels = timelineData.map((_, i) => new Date(Date.now() - (5-i)*10*60000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+
+                if (lineChart) {
+                    lineChart.data.labels = labels;
+                    lineChart.data.datasets[0].data = timelineData;
+                    lineChart.data.datasets[0].borderColor = mainColor;
+                    lineChart.data.datasets[0].pointBorderColor = mainColor;
+                    lineChart.update('none');
+                } else {
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(0,0,0,0.1)');
+                    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+                    lineChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Focus',
+                                data: timelineData,
+                                borderColor: mainColor,
+                                backgroundColor: gradient,
+                                borderWidth: 2,
+                                tension: 0.4,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: '#fff',
+                                pointBorderColor: mainColor,
+                                pointBorderWidth: 2,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: subColor } },
+                                y: { display: false }
+                            }
                         }
-                    }
-                });
+                    });
+                }
+            }
+
+            // 2. Bar Chart (Deep Analytics)
+            const barCanvas = document.getElementById("barChart");
+            if (barCanvas) {
+                const ctx = barCanvas.getContext("2d");
+                if (barChart) {
+                    barChart.data.datasets[0].backgroundColor = accentColor;
+                    barChart.data.datasets[1].backgroundColor = subColor;
+                    barChart.update('none');
+                } else {
+                    barChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                            datasets: [
+                                {
+                                    label: 'Productive',
+                                    data: [5, 7, 4, 8, 6, 3, 2],
+                                    backgroundColor: accentColor,
+                                    borderRadius: 4,
+                                },
+                                {
+                                    label: 'Distracted',
+                                    data: [2, 1, 3, 1, 2, 4, 1],
+                                    backgroundColor: subColor,
+                                    borderRadius: 4,
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: subColor } },
+                                y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { display: false }, border: { display: false } }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 3. Flow Chart
+            const flowCanvas = document.getElementById("flowChart");
+            if (flowCanvas) {
+                const ctx = flowCanvas.getContext("2d");
+                if (flowChart) {
+                    flowChart.data.datasets[0].backgroundColor = accentColor;
+                    flowChart.update('none');
+                } else {
+                    flowChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+                            datasets: [{
+                                label: 'Max Streak (hrs)',
+                                data: [3.5, 4.2, 2.1, 5.0, 3.8, 1.5, 0.5],
+                                backgroundColor: accentColor,
+                                borderRadius: 10,
+                                borderSkipped: false,
+                                barThickness: 12
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: subColor, font: { size: 10 } }, border: { display: false } },
+                                y: { display: false }
+                            }
+                        }
+                    });
+                }
             }
         }
 
@@ -1172,6 +1340,7 @@
         setInterval(() => {
             const clockEl = document.getElementById("clock");
             if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('en-US', {hour12: false});
+            updateMusicProgress();
         }, 1000);
 
         // Init
@@ -1179,12 +1348,10 @@
             initThemeMenu(); // Build the new menu
             drawRings();
             renderTopApps();
-            refreshGoals();
-            refreshSystemVitals();
+            renderBadges();
             updateDashboard();
             setInterval(updateDashboard, 3000);
-            setInterval(refreshSystemVitals, 5000);
-            setInterval(refreshGoals, 60000);
+            togglePlay(); // Set initial icon state to pause (playing)
             
             // Add Fade In Animation
             const style = document.createElement('style');
