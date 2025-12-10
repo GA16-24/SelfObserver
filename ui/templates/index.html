@@ -445,6 +445,28 @@
                 <div class="w-full bg-black/10 h-1 rounded-full overflow-hidden relative z-10">
                     <div id="music-progress" class="h-full bg-accent-color w-0 transition-all duration-1000 ease-linear"></div>
                 </div>
+            </div>
+
+            <!-- Music Widget -->
+            <div class="glass-card p-4 h-48 flex flex-col justify-center gap-4 relative overflow-hidden group shrink-0">
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-50"></div>
+                <div class="flex items-center gap-4 relative z-10">
+                    <div class="w-14 h-14 rounded-xl bg-black/20 flex items-center justify-center shadow-md relative overflow-hidden shrink-0">
+                         <div class="flex items-end gap-0.5 h-6 opacity-70">
+                             <div class="w-1 bg-white animate-[music-bar_1s_ease-in-out_infinite]"></div>
+                             <div class="w-1 bg-white animate-[music-bar_1.2s_ease-in-out_infinite] animation-delay-100"></div>
+                             <div class="w-1 bg-white animate-[music-bar_0.8s_ease-in-out_infinite] animation-delay-200"></div>
+                         </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div id="music-title" class="text-sm font-bold text-main truncate">Midnight City</div>
+                        <div id="music-artist" class="text-[10px] font-medium text-sub truncate uppercase tracking-wider">M83</div>
+                    </div>
+                </div>
+                
+                <div class="w-full bg-black/10 h-1 rounded-full overflow-hidden relative z-10">
+                    <div id="music-progress" class="h-full bg-accent-color w-0 transition-all duration-1000 ease-linear"></div>
+                </div>
 
                 <div class="flex items-center justify-center gap-4 text-main relative z-10">
                     <button onclick="skipSong(-1)" class="hover:text-accent-color transition-colors p-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
@@ -1322,8 +1344,8 @@
                             x: { grid: { display: false }, ticks: { color: subColor, font: { size: 10 } }, border: { display: false } },
                             y: { display: false }
                         }
-                    }
-                });
+                    });
+                }
             }
 
             flowChart.data.labels = labels;
