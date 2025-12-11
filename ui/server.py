@@ -578,5 +578,32 @@ def home():
     return render_template("index.html")
 
 
+def _get_host_port():
+    """Resolve the host/port for the Flask dev server.
+
+    Defaults keep the server bound to localhost to avoid Windows firewall
+    permission issues, but values can be overridden via env vars.
+    """
+
+    host = os.environ.get("UI_HOST") or "127.0.0.1"
+    port_env = os.environ.get("UI_PORT")
+    try:
+        port = int(port_env) if port_env else 5010
+    except ValueError:
+        port = 5010
+    return host, port
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5010, debug=True)
+    host, port = _get_host_port()
+    try:
+        app.run(host=host, port=port, debug=True)
+    except OSError as exc:
+        # Surface a helpful hint when a Windows socket permission error occurs.
+        hint = (
+            "Socket error starting server. If the port is blocked or reserved, "
+            "set UI_PORT to a different value (e.g., 5050) or bind to localhost "
+            "with UI_HOST=127.0.0.1."
+        )
+        print(f"{hint}\nDetails: {exc}")
+        raise
