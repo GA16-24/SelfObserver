@@ -1,0 +1,19 @@
+{
+  "rules": [
+    {
+      "name": "Website Redesign",
+      "title_contains": ["figma", "website", "landing"],
+      "path_contains": ["/Website", "\\\\Website"]
+    },
+    {
+      "name": "Research",
+      "title_contains": ["notion", "paper", "arxiv", "research"]
+    },
+    {
+      "name": "Inbox",
+      "title_contains": ["gmail", "outlook", "mail"],
+      "exe_contains": ["outlook", "thunderbird"]
+    }
+  ],
+  "default": "General"
+}
