@@ -1,9 +1,10 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import json
 import os
 import datetime
 import platform
 import re
+import sys
 from typing import List
 
 # ---------------------------------------------
@@ -14,12 +15,35 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # SelfObserver/
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 LEGACY_LOG = os.path.join(LOG_DIR, "screen_log.jsonl")
 
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+from selfobserver.database import (
+    add_goal,
+    load_goals,
+    load_project_mappings,
+    maybe_reload_project_mappings,
+    resolve_project,
+    toggle_goal,
+)
+from selfobserver.gamification import get_gamification_engine
+from selfobserver.input_telemetry import start_input_tracker
+from selfobserver.media_controller import MediaController
+from selfobserver.system_metrics import start_metrics_poller
+
 # Obsidian vault for upcoming goals (env override supported)
 OBSIDIAN_VAULT = os.environ.get("OBSIDIAN_VAULT") or os.path.expanduser("~/Obsidian")
 
 # Entries matching these rules are skipped entirely from the UI
 IGNORED_PROCESSES = {"lockapp.exe"}
 IGNORED_TITLE_KEYWORDS = ["windows default lock screen"]
+
+# Long-lived helpers
+METRICS_POLLER = start_metrics_poller()
+INPUT_TRACKER = start_input_tracker()
+MEDIA = MediaController()
+GAMIFICATION = get_gamification_engine()
+PROJECT_MAPPING, PROJECT_MTIME = load_project_mappings()
 
 # ---------------------------------------------
 # Flask App
@@ -67,6 +91,14 @@ def latest_log_path():
     return LEGACY_LOG if os.path.exists(LEGACY_LOG) else None
 
 
+def _current_project_mapping():
+    global PROJECT_MAPPING, PROJECT_MTIME
+    PROJECT_MAPPING, PROJECT_MTIME = maybe_reload_project_mappings(
+        PROJECT_MAPPING, PROJECT_MTIME
+    )
+    return PROJECT_MAPPING
+
+
 def read_logs():
     log_path = latest_log_path()
     if not log_path or not os.path.exists(log_path):
@@ -83,6 +115,14 @@ def read_logs():
 
                 if exe in IGNORED_PROCESSES or any(k in title for k in IGNORED_TITLE_KEYWORDS):
                     continue
+
+                try:
+                    mapping = _current_project_mapping()
+                    project = resolve_project(entry, mapping)
+                    if project:
+                        entry.setdefault("project", project)
+                except Exception:
+                    pass
 
                 out.append(entry)
             except:
@@ -225,6 +265,49 @@ def api_stats_apps():
 
     return jsonify(top)
 
+# ---------------------------------------------
+# API: today's project breakdown
+# ---------------------------------------------
+@app.route("/api/stats/projects")
+def api_stats_projects():
+    logs = read_logs()
+    today = datetime.date.today()
+
+    durations = {}
+    last_ts = None
+    last_project = None
+
+    for entry in logs:
+        try:
+            ts = datetime.datetime.fromisoformat(entry["ts"])
+        except Exception:
+            continue
+        if ts.date() != today:
+            continue
+
+        if last_ts and last_project:
+            delta = (ts - last_ts).total_seconds()
+            if delta > 0:
+                durations[last_project] = durations.get(last_project, 0) + delta
+
+        last_ts = ts
+        last_project = entry.get("project") or resolve_project(entry, _current_project_mapping()) or "Uncategorized"
+
+    if last_ts and last_project:
+        delta = (datetime.datetime.now() - last_ts).total_seconds()
+        durations[last_project] = durations.get(last_project, 0) + max(delta, 0)
+
+    durations_minutes = {name: seconds / 60.0 for name, seconds in durations.items()}
+
+    return jsonify(
+        [
+            {"project": name, "minutes": minutes}
+            for name, minutes in sorted(
+                durations_minutes.items(), key=lambda item: item[1], reverse=True
+            )
+        ]
+    )
+
 
 # ---------------------------------------------
 # API: system vitals (CPU / RAM / GPU)
@@ -341,7 +424,58 @@ def system_snapshot():
 
 @app.route("/api/system")
 def api_system():
-    return jsonify(system_snapshot())
+    snapshot = system_snapshot()
+    try:
+        snapshot["live"] = METRICS_POLLER.snapshot() if METRICS_POLLER else {}
+    except Exception:
+        snapshot["live"] = {}
+    return jsonify(snapshot)
+
+
+# ---------------------------------------------
+# API: input odometer (keystrokes / mouse distance)
+# ---------------------------------------------
+@app.route("/api/input")
+def api_input():
+    if not INPUT_TRACKER:
+        return jsonify({"available": False, "warnings": ["Input tracker unavailable"]})
+    snap = INPUT_TRACKER.snapshot()
+    return jsonify(
+        {
+            "available": True,
+            "keys": snap.keys_pressed,
+            "mouse_px": snap.mouse_distance_px,
+            "since": snap.started_at,
+            "warnings": snap.warnings,
+        }
+    )
+
+
+# ---------------------------------------------
+# API: media control + now playing
+# ---------------------------------------------
+@app.route("/api/media", methods=["GET", "POST"])
+def api_media():
+    if request.method == "POST":
+        payload = request.get_json(silent=True, force=True) or {}
+        action = payload.get("action")
+        ok = False
+        if action == "play_pause":
+            ok = MEDIA.play_pause()
+        elif action == "next":
+            ok = MEDIA.next_track()
+        elif action == "previous":
+            ok = MEDIA.previous_track()
+        return jsonify({"ok": ok})
+    return jsonify(MEDIA.now_playing())
+
+
+# ---------------------------------------------
+# API: gamification state (XP / badges)
+# ---------------------------------------------
+@app.route("/api/gamification")
+def api_gamification():
+    return jsonify(GAMIFICATION.get_state())
 
 
 # ---------------------------------------------
@@ -413,9 +547,24 @@ def collect_obsidian_goals(limit: int = 6) -> List[dict]:
     return tasks[:limit]
 
 
-@app.route("/api/goals")
+@app.route("/api/goals", methods=["GET", "POST"])
 def api_goals():
-    goals = collect_obsidian_goals()
+    if request.method == "POST":
+        payload = request.get_json(silent=True, force=True) or {}
+        action = payload.get("action")
+        goals = load_goals()
+        if action == "add" and payload.get("title"):
+            goals = add_goal(payload["title"], payload.get("due"))
+        elif action == "toggle" and payload.get("id"):
+            goals = toggle_goal(payload["id"], payload.get("done"))
+        return jsonify({"goals": goals})
+
+    goals = load_goals()
+    if goals:
+        goals.extend(collect_obsidian_goals(limit=3))
+    else:
+        goals = collect_obsidian_goals()
+
     if not goals:
         goals = [
             {"title": "Connect Obsidian vault (set OBSIDIAN_VAULT)", "source": "setup", "due": None},
