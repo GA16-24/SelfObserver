@@ -44,7 +44,6 @@ INPUT_TRACKER = start_input_tracker()
 MEDIA = MediaController()
 GAMIFICATION = get_gamification_engine()
 PROJECT_MAPPING, PROJECT_MTIME = load_project_mappings()
-
 # ---------------------------------------------
 # Flask App
 # ---------------------------------------------
@@ -129,12 +128,18 @@ def read_logs():
                 pass
     return out
 
+
+def logs_with_fallback():
+    """Return recent logs collected by the running observer services."""
+
+    return read_logs()
+
 # ---------------------------------------------
 # API: latest logs (UI table)
 # ---------------------------------------------
 @app.route("/api/latest")
 def api_latest():
-    logs = read_logs()
+    logs = logs_with_fallback()
     recent = logs[-50:]
 
     # Ensure newest entry is first so the UI hero card shows the current window
@@ -160,7 +165,7 @@ def api_latest():
 # ---------------------------------------------
 @app.route("/api/stats/day")
 def api_stats_day():
-    logs = read_logs()
+    logs = logs_with_fallback()
     today = datetime.date.today()
 
     durations = {}  # mode → seconds
@@ -198,7 +203,7 @@ def api_stats_day():
 # ---------------------------------------------
 @app.route("/api/stats/hour")
 def api_stats_hour():
-    logs = read_logs()
+    logs = logs_with_fallback()
     now = datetime.datetime.now()
     one_hour_ago = now - datetime.timedelta(hours=1)
 
@@ -223,7 +228,7 @@ def api_stats_hour():
 # ---------------------------------------------
 @app.route("/api/stats/apps")
 def api_stats_apps():
-    logs = read_logs()
+    logs = logs_with_fallback()
     today = datetime.date.today()
 
     durations = {}  # exe → seconds
@@ -270,7 +275,7 @@ def api_stats_apps():
 # ---------------------------------------------
 @app.route("/api/stats/projects")
 def api_stats_projects():
-    logs = read_logs()
+    logs = logs_with_fallback()
     today = datetime.date.today()
 
     durations = {}
