@@ -33,6 +33,20 @@ def report_path_for_date(day: date) -> str:
     return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
 
 
+def _parse_timestamp(ts_str: str) -> datetime:
+    """Parse timestamps, tolerating midnight as hour 24 by rolling to next day."""
+    try:
+        return datetime.fromisoformat(ts_str)
+    except ValueError as exc:
+        if "hour must be in 0..23" in str(exc) and "24:" in ts_str:
+            try:
+                fixed = ts_str.replace(" 24:", " 00:").replace("T24:", "T00:")
+                return datetime.fromisoformat(fixed) + timedelta(days=1)
+            except Exception:
+                pass
+        raise
+
+
 def latest_log_path():
     """Find the newest daily log file (fallback: legacy screen_log.jsonl)."""
     if not os.path.exists(LOG_DIR):
@@ -77,7 +91,7 @@ def load_all_logs(log_path=None):
                 mode = obj.get("mode", "idle")
                 if not ts_str:
                     continue
-                ts = datetime.fromisoformat(ts_str)
+                ts = _parse_timestamp(ts_str)
                 window_info = {"exe": obj.get("exe", ""), "title": obj.get("title", "")}
                 if is_ignored_window(window_info):
                     continue
