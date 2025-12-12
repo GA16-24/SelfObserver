@@ -1,8 +1,8 @@
 import json
 import os
 import subprocess
-from collections import defaultdict
-from datetime import date, datetime
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
 import behavior_digital_twin
@@ -31,6 +31,20 @@ os.makedirs(REPORT_DIR, exist_ok=True)
 def report_path_for_date(day: date) -> str:
     """Return the on-disk path for a report corresponding to a given date."""
     return os.path.join(REPORT_DIR, f"report_{day.isoformat()}.md")
+
+
+def _parse_timestamp(ts_str: str) -> datetime:
+    """Parse timestamps, tolerating midnight as hour 24 by rolling to next day."""
+    try:
+        return datetime.fromisoformat(ts_str)
+    except ValueError as exc:
+        if "hour must be in 0..23" in str(exc) and "24:" in ts_str:
+            try:
+                fixed = ts_str.replace(" 24:", " 00:").replace("T24:", "T00:")
+                return datetime.fromisoformat(fixed) + timedelta(days=1)
+            except Exception:
+                pass
+        raise
 
 
 def latest_log_path():
@@ -77,7 +91,7 @@ def load_all_logs(log_path=None):
                 mode = obj.get("mode", "idle")
                 if not ts_str:
                     continue
-                ts = datetime.fromisoformat(ts_str)
+                ts = _parse_timestamp(ts_str)
                 window_info = {"exe": obj.get("exe", ""), "title": obj.get("title", "")}
                 if is_ignored_window(window_info):
                     continue
@@ -239,6 +253,78 @@ def build_plain_language_summary(durations, longest_segment, switches):
         lines.append(f"Produktive Zeit: {work_min:.0f} Minuten, längster Arbeitsblock ca. {block:.0f} Minuten.")
 
     return "\n".join(lines)
+
+
+def _format_minutes(total_minutes: float) -> str:
+    """Return a human friendly hours/minutes string for dashboard style output."""
+    hours = int(total_minutes // 60)
+    minutes = int(round(total_minutes % 60))
+    if hours and minutes:
+        return f"{hours}h {minutes}m"
+    if hours:
+        return f"{hours}h"
+    return f"{minutes}m"
+
+
+def _top_apps(entries: List[Dict[str, Any]], limit: int = 3) -> List[str]:
+    """Return the most common apps/sites for the day."""
+    counts = Counter()
+    for e in entries:
+        exe = (e.get("exe") or "").split("\\")[-1]
+        if exe:
+            counts[exe.lower()] += 1
+        elif e.get("url"):
+            counts[e["url"].lower()] += 1
+    return [name for name, _ in counts.most_common(limit)]
+
+
+def _bucketed_mode(entries: List[Dict[str, Any]], start_hour: int, end_hour: int) -> Dict[str, float]:
+    """Approximate mode durations inside a given hour window (wrapping allowed)."""
+    durations = defaultdict(float)
+    if len(entries) < 2:
+        return durations
+
+    def overlap_minutes(start, end, win_start, win_end):
+        # window may wrap past midnight; build windows with timedeltas to allow hour=24
+        day_start = datetime.combine(start.date(), datetime.min.time())
+        window_start = day_start + timedelta(hours=win_start)
+        window_end = day_start + timedelta(hours=win_end)
+        if win_end <= win_start:
+            window_end += timedelta(days=1)
+
+        seg_start = max(start, window_start)
+        seg_end = min(end, window_end)
+        if seg_end <= seg_start:
+            return 0.0
+        return (seg_end - seg_start).total_seconds() / 60.0
+
+    for cur, nxt in zip(entries, entries[1:]):
+        seg_start = cur["ts"]
+        seg_end = nxt["ts"]
+        if seg_end <= seg_start:
+            continue
+        minutes = overlap_minutes(seg_start, seg_end, start_hour, end_hour)
+        if minutes > 0:
+            durations[cur.get("mode", "unknown")] += minutes
+    return durations
+
+
+def _cluster_durations(entries: List[Dict[str, Any]], labels: List[int]) -> Dict[int, float]:
+    """Approximate minutes spent per cluster using consecutive timestamps."""
+    durations = defaultdict(float)
+    if len(entries) < 2 or not labels:
+        return durations
+
+    for idx, (cur, nxt) in enumerate(zip(entries, entries[1:])):
+        lbl = labels[idx] if idx < len(labels) else -1
+        if lbl == -1:
+            continue
+        seg_start = cur["ts"]
+        seg_end = nxt["ts"]
+        if seg_end <= seg_start:
+            continue
+        durations[lbl] += (seg_end - seg_start).total_seconds() / 60.0
+    return durations
 
 
 # ------------------------------------------------------
@@ -509,91 +595,290 @@ def build_optimization_section(durations, longest_segment, switches):
 # ------------------------------------------------------
 def format_report(date_str, durations, longest_segment, switches, entries_count, log_path, today_entries, analysis):
     total_min = sum(durations.values())
-    has_enough_behavior = len(today_entries) >= 10
-    analysis = analysis if has_enough_behavior else {}
-    forecast = time_series_forecasting.forecast_next_hour(today_entries, analysis) if has_enough_behavior else {}
+    has_behavior = len(today_entries) >= 2
+    analysis = analysis if has_behavior else {}
+    forecast = time_series_forecasting.forecast_next_hour(today_entries, analysis) if has_behavior else {}
+    twin = behavior_digital_twin.build_digital_twin(today_entries, analysis, forecast) if has_behavior else {}
 
-    mode_rows = []
-    if total_min > 0:
-        for mode in ALLOWED_MODES:
-            mins = durations.get(mode, 0.0)
-            share = mins / total_min * 100 if total_min > 0 else 0.0
-            mode_rows.append((mode, mins, share))
+    week_str = datetime.now().strftime("%G-[W]%V")
+    month_str = datetime.now().strftime("%B %Y")
+    quarter = (datetime.now().month - 1) // 3 + 1
+    day_type = "Weekend" if datetime.now().weekday() >= 5 else "Weekday"
 
-        extra_modes = sorted(set(durations.keys()) - set(ALLOWED_MODES))
-        for mode in extra_modes:
-            mins = durations.get(mode, 0.0)
-            share = mins / total_min * 100 if total_min > 0 else 0.0
-            mode_rows.append((mode, mins, share))
+    top_modes = sorted(durations.items(), key=lambda kv: kv[1], reverse=True)
+    top_outcomes = [
+        f"{mode}: {_format_minutes(mins)} (längster Block {longest_segment.get(mode, 0):.0f}m)"
+        for mode, mins in top_modes[:3]
+        if mins > 0
+    ]
+
+    optimization_lines = build_optimization_section(durations, longest_segment, switches).split("\n")
+    top_apps = _top_apps(today_entries)
+    anomalies = analysis.get("anomaly_indices", []) if analysis else []
+
+    cluster_durations = _cluster_durations(today_entries, analysis.get("labels", [])) if analysis else {}
+    cluster_meta = analysis.get("clusters", {}) if analysis else {}
+
+    transitions = analysis.get("transitions", Counter()) if analysis else Counter()
+    total_transitions = sum(transitions.values()) or 1
+
+    hourly_switches = Counter()
+    for prev, nxt in zip(today_entries, today_entries[1:]):
+        if prev.get("mode") != nxt.get("mode"):
+            hourly_switches[prev["ts"].hour] += 1
+
+    best_windows, worst_windows = twin.get("productivity_windows", ([], [])) if twin else ([], [])
+    triggers = twin.get("procrastination_triggers", ([], [])) if twin else ([], [])
+    stress = twin.get("stress", {"estimate": "niedrig", "switch_rate": 0.0}) if twin else {"estimate": "niedrig", "switch_rate": 0.0}
+    alignment = twin.get("goal_alignment", {"alignment": 0.0, "trend": "neutral"}) if twin else {"alignment": 0.0, "trend": "neutral"}
+
+    prod_score = int(min(100, max(0, (durations.get("work", 0.0) / (total_min or 1)) * 140))) if total_min else 0
+    distract_score = int(min(100, max(0, ((durations.get("video", 0.0) + durations.get("social", 0.0)) / (total_min or 1)) * 140))) if total_min else 0
+    dopamine_balance = int(alignment.get("alignment", 0.0) * 100)
+
+    data_completeness = "hoch" if entries_count >= 30 else "mittel" if entries_count >= 10 else "gering"
+    forecast_quality = "OK" if forecast else "Keine Vorhersage"
+
+    def _timeline_block(label: str, start: int, end: int):
+        bucket = _bucketed_mode(today_entries, start, end) if has_behavior else {}
+        if not bucket:
+            return label, "Keine Daten", "", ""
+        primary_mode, primary_min = max(bucket.items(), key=lambda kv: kv[1])
+        def _in_window(hour: int) -> bool:
+            if end > start:
+                return start <= hour < end
+            return hour >= start or hour < end
+
+        switches_block = sum(
+            1
+            for prev, nxt in zip(today_entries, today_entries[1:])
+            if prev.get("mode") != nxt.get("mode") and _in_window(prev["ts"].hour)
+        )
+        notes = f"Top-Modus: {primary_mode} ({_format_minutes(primary_min)})"
+        return label, primary_mode, f"Wechsel: {switches_block}", notes
+
+    timeline_blocks = [
+        _timeline_block("Morning (06–12)", 6, 12),
+        _timeline_block("Afternoon (12–18)", 12, 18),
+        _timeline_block("Evening (18–24)", 18, 24),
+        _timeline_block("Late Night (24–06)", 0, 6),
+    ]
+
+    def _cluster_row(lbl, mins):
+        meta = cluster_meta.get(lbl, {})
+        return meta.get("label", f"Cluster {lbl}"), mins, meta.get("top_apps", []), meta.get("top_modes", [])
 
     lines: List[str] = []
-    lines.append(f"# Tagesbericht – {date_str}\n")
-    lines.append("Dieser Bericht wurde automatisch von SelfObserver erzeugt.")
-    lines.append("Er basiert auf den aufgezeichneten Vordergrundaktivitäten des heutigen Tages.\n")
+    lines.extend(
+        [
+            "---",
+            "tags:",
+            "  - selfobserver",
+            "  - 🧠",
+            "Status:",
+            "Category:",
+            "  - \"[[🗺️ 05 Lifestyle MOC]]\"",
+            "Topics:",
+            "Summary:",
+            "Source:",
+            "---",
+            ">[!info]- Meta Details",
+            f">Date: {date_str}",
+            f">Week: {week_str}",
+            f">Month: {month_str}",
+            f">Quarter: Q{quarter} - {datetime.now().strftime('%Y')}",
+            f">Year: {datetime.now().strftime('%Y')}",
+            "",
+            f"# Human Screen Behavior Report — {date_str}",
+            "",
+            "## 1) Executive Summary",
+            f"- **Day type:** {day_type}",
+            "- **Top outcomes:**",
+            *[f"  - {item}" for item in (top_outcomes or ["Keine klaren Aktivitäten erkannt."])],
+            f"- **Biggest risk:** {triggers[0][0][0]} Ablenkung" if triggers and triggers[0] else "- **Biggest risk:** Hohe Wechselrate" if switches > 20 else "- **Biggest risk:** Keine deutliche Gefahr erkannt",
+            f"- **One thing to do tomorrow:** {optimization_lines[0] if optimization_lines else 'Kein Vorschlag generiert.'}",
+            "",
+            "## 2) Key Metrics Dashboard",
+            "### Time & Focus",
+            f"- **Total active screen time:** {_format_minutes(total_min)}",
+            f"- **Deep work time:** {_format_minutes(durations.get('work', 0.0))}",
+            f"- **Context switches:** {switches}",
+            f"- **Top apps/sites:** {', '.join(top_apps) if top_apps else 'keine Daten'}",
+            "",
+            "### Scores (0–100)",
+            f"- **Productivity score:** {prod_score}",
+            f"- **Distraction score:** {distract_score}",
+            f"- **Dopamine ↔ Goal balance:** {dopamine_balance}",
+            f"- **Stress/strain indicator:** {stress.get('estimate', 'niedrig').title()}",
+            "",
+            "### Quality & Confidence",
+            f"- **Data completeness:** {data_completeness}",
+            f"- **Anomalies detected:** {len(anomalies)}",
+            f"- **Forecast accuracy (if available):** {forecast_quality}",
+            "",
+            "## 3) Daily Timeline",
+        ]
+    )
 
-    lines.append("## Schnell erklärt (ohne Fachbegriffe)")
-    lines.append(build_plain_language_summary(durations, longest_segment, switches))
-    lines.append("")
+    for label, mode, transitions_info, notes in timeline_blocks:
+        lines.extend(
+            [
+                f"### {label}",
+                f"- **Primary mode:** {mode}",
+                f"- **Key transitions:** {transitions_info or '–'}",
+                f"- **Notes / triggers:** {notes or '–'}",
+                "",
+            ]
+        )
 
-    lines.append("## 1. Zeitverteilung nach Modus (in Minuten)")
-    if total_min <= 0:
-        lines.append("Es liegen für heute keine ausreichenden Daten vor.\n")
+    lines.append("## 4) Behavior Modes (Clusters)")
+    if cluster_durations:
+        for (lbl, mins) in sorted(cluster_durations.items(), key=lambda kv: kv[1], reverse=True)[:3]:
+            name, dur, top_apps_meta, top_modes_meta = _cluster_row(lbl, mins)
+            lines.extend(
+                [
+                    f"### Cluster {lbl} — {name}",
+                    f"- **Time spent:** {_format_minutes(dur)}",
+                    f"- **Typical apps:** {', '.join([a for a, _ in top_apps_meta]) if top_apps_meta else '–'}",
+                    f"- **Intent / context:** {name}",
+                    "- **Cognitive / emotion tone:** –",
+                    "- **Dopamine vs goal:** –",
+                    "- **Quality:** Productive / Neutral / Distracting",
+                    "- **Notes:**",
+                    "",
+                ]
+            )
     else:
-        lines.append("| Modus   | Minuten | Anteil |")
-        lines.append("|---------|---------|--------|")
-        for mode, mins, share in mode_rows:
-            lines.append(f"| {mode:<7}| {mins:7.1f} | {share:6.1f} % |")
-        lines.append("")
+        lines.append("Keine Clusterinformationen verfügbar.\n")
 
-    lines.append("## 2. Verhaltensanalyse (Kurzinfos)")
-    lines.append(f"- Gesamterfasste Zeit: {total_min:.1f} Minuten.")
-    lines.append(f"- Aufgezeichnete Ereignisse: {entries_count}.")
-    lines.append(f"- Moduswechsel (Anzeichen für Fragmentierung): {switches}.")
-
-    if longest_segment:
-        lines.append("- Längste zusammenhängende Phasen je Modus:")
-        for mode, seg_min in longest_segment.items():
-            if seg_min <= 0:
-                continue
-            lines.append(f"  - {mode}: ca. {seg_min:.1f} Minuten")
-    lines.append("")
-
-    lines.append("## 3. Verhaltens-Embedding & Cluster")
-    if has_enough_behavior:
-        lines.append(build_behavior_section(today_entries, analysis))
+    lines.append("## 5) Transitions & Routines (State Machine View)")
+    lines.append("### Most common transitions")
+    if transitions:
+        for (a, b), count in transitions.most_common(3):
+            prob = count / total_transitions * 100
+            lines.append(f"- **{a} → {b}:** ({prob:.1f} %, {count}) — meaning: Wechsel zwischen Modi")
     else:
-        lines.append("Zu wenige Datenpunkte für eine robuste Clusteranalyse vorhanden.")
-    lines.append("")
+        lines.append("- Keine Wechselmuster erkennbar")
 
-    lines.append("## 4. Behavior Digital Twin")
-    if has_enough_behavior:
-        lines.append(build_digital_twin_section(today_entries, analysis, forecast))
+    lines.extend(
+        [
+            "",
+            "### Stability & churn",
+            f"- **Stickiest modes:** {', '.join([m for m, _ in top_modes[:2]]) if top_modes else '–'}",
+            f"- **Highest-switch hours:** {', '.join([f'{h:02d}h' for h, _ in hourly_switches.most_common(2)]) if hourly_switches else '–'}",
+            "",
+            "### Productivity windows",
+            f"- **Best windows:** {', '.join([f'{h:02d}:00' for h, _ in best_windows]) if best_windows else '–'}",
+            f"- **Worst windows:** {', '.join([f'{h:02d}:00' for h, _ in worst_windows]) if worst_windows else '–'}",
+            f"- **What helped / hurt:** {'Ablenkende Apps' if triggers and triggers[0] else '–'}",
+            "",
+            "## 6) Triggers: Procrastination, Distraction, Stress",
+            "### Trigger list (ranked)",
+        ]
+    )
+
+    if triggers and (triggers[0] or triggers[1]):
+        for idx, (app, count) in enumerate(triggers[0][:2], start=1):
+            lines.extend(
+                [
+                    f"{idx}) **Trigger:** {app}",
+                    "   - **When:** Häufig bei Dopamin-getriebenen Phasen",
+                    f"   - **Pattern:** {count} Vorkommen",
+                    "   - **Impact:** Zerstreut den Fokus",
+                    "   - **Countermeasure:** Zeitfenster für Checks einplanen",
+                    "",
+                ]
+            )
     else:
-        lines.append("Der Digital Twin wird erstellt, sobald mindestens 10 Aktivitäten vorliegen.")
-    lines.append("")
+        lines.append("1) **Trigger:** keine klaren Ablenker gefunden")
 
-    lines.append("## 5. Zeitreihenbasierte Vorhersage (nächste Stunde)")
-    if has_enough_behavior:
-        lines.append(build_forecast_section(today_entries, analysis, forecast))
+    lines.extend(
+        [
+            "### Recovery signals",
+            "- **What reliably resets focus:** Kurze Pause + klarer nächster Schritt",
+            "",
+            "## 7) Anomalies & Noteworthy Events",
+        ]
+    )
+
+    if anomalies:
+        idx = anomalies[0]
+        ts = today_entries[idx]["ts"].strftime("%H:%M:%S") if idx < len(today_entries) else "–"
+        lines.extend(
+            [
+                f"- **Anomaly:** ungewöhnliches Muster um {ts}",
+                "  - **Evidence:** Cluster als Ausreißer markiert",
+                "  - **Possible cause (inference):** Kontextwechsel oder neue App",
+                "  - **Action:** Monitor",
+                "",
+            ]
+        )
     else:
-        lines.append("Nicht genug Historie für eine sinnvolle Vorhersage.")
-    lines.append("")
+        lines.append("- **Anomaly:** keine Auffälligkeiten erkannt")
 
-    lines.append("## 6. Konkrete Optimierungsaufgaben für morgen")
-    lines.append(build_optimization_section(durations, longest_segment, switches))
-    lines.append("")
+    lines.extend(
+        [
+            "## 8) Forecast & Tomorrow Outlook",
+            "### Next-hour / next-day probabilities (from forecaster)",
+        ]
+    )
 
-    lines.append("## 7. KI-Analyse des Nutzungstages")
-    lines.append(generate_llm_section(durations, longest_segment, switches, today_entries))
-    lines.append("")
+    if forecast and forecast.get("distribution"):
+        dist_sorted = sorted(forecast["distribution"].items(), key=lambda kv: kv[1], reverse=True)[:3]
+        lines.append("- **Most likely modes:** " + ", ".join([f"{cid} ({prob*100:.1f}%)" for cid, prob in dist_sorted]))
+    else:
+        lines.append("- **Most likely modes:** Keine Prognose")
 
-    lines.append("## 8. Datenreferenz")
+    lines.extend(
+        [
+            f"- **Risk periods:** {', '.join([f'{h:02d}:00' for h, _ in worst_windows]) if worst_windows else '–'}",
+            f"- **High-confidence prediction:** {forecast.get('predicted_cluster')}" if forecast else "- **High-confidence prediction:** –",
+            "- **Low-confidence areas + why:** Geringe Datenbasis" if not forecast else "- **Low-confidence areas + why:** Modell=Baseline",
+            "",
+            "### If–Then plan",
+            "- **If** (Ablenkungsrisiko steigt) **then** (Benachrichtigungen aus, 25-Minuten Fokusblock)",
+            "",
+            "## 9) Recommendations (max 3)",
+        ]
+    )
+
+    for idx, rec in enumerate(optimization_lines[:3], start=1):
+        lines.append(f"{idx}) {rec}")
+
+    lines.extend(
+        [
+            "",
+            "## 10) Appendix (Power User)",
+            "### Cluster catalog",
+        ]
+    )
+
+    if cluster_meta:
+        for lbl, meta in cluster_meta.items():
+            lines.append(
+                f"- {lbl} → {meta.get('label', 'cluster')} → apps: {', '.join([a for a, _ in meta.get('top_apps', [])])}"
+            )
+    else:
+        lines.append("- Keine Cluster berechnet")
+
+    lines.extend(
+        [
+            "",
+            "### Model / pipeline notes",
+            f"- Clustering path used: {analysis.get('algorithm', 'none') if analysis else 'none'}",
+            "- Guards tripped: –",
+            "- Rolling baseline + priors: siehe Forecast-Baseline",
+            "",
+            "### Data integrity",
+            f"- **Missing intervals:** {'keine erkennbar' if entries_count else 'vollständig offen'}",
+            f"- **Device downtime:** {'nicht festgestellt' if entries_count else 'SelfObserver nicht aktiv?'}",
+        ]
+    )
+
     if log_path:
-        lines.append(f"Die Rohdaten liegen in der Datei `{log_path}`.\n")
-    else:
-        lines.append("Es wurde keine Log-Datei gefunden.\n")
+        lines.append(f"- **Log source:** {log_path}")
 
-    return "\n".join(lines)
+    return "\n".join([str(line) for line in lines])
 
 
 # ------------------------------------------------------
@@ -608,18 +893,10 @@ def generate_daily_report():
     date_str = datetime.now().strftime("%Y-%m-%d")
 
     if not today_entries:
-        empty_report = (
-            f"# Tagesbericht – {date_str}\n\n"
-            "Es wurden für heute keine geeigneten Ereignisdaten gefunden.\n"
-            "Mögliche Ursachen: SelfObserver war nicht aktiv oder der Tag ist noch nicht ausreichend fortgeschritten.\n"
-        )
-        report_path = report_path_for_date(datetime.now().date())
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write(empty_report)
-        return report_path
-
-    durations, longest_segment, switches = compute_durations_and_segments(today_entries)
-    analysis = behavior_model.analyze_behaviors(today_entries)
+        durations, longest_segment, switches, analysis = defaultdict(float), defaultdict(float), 0, {}
+    else:
+        durations, longest_segment, switches = compute_durations_and_segments(today_entries)
+        analysis = behavior_model.analyze_behaviors(today_entries)
     report_md = format_report(
         date_str,
         durations,
