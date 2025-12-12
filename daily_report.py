@@ -271,10 +271,10 @@ def _bucketed_mode(entries: List[Dict[str, Any]], start_hour: int, end_hour: int
         return durations
 
     def overlap_minutes(start, end, win_start, win_end):
-        # window may wrap past midnight
-        day = start.date()
-        window_start = datetime.combine(day, datetime.min.time()).replace(hour=win_start)
-        window_end = datetime.combine(day, datetime.min.time()).replace(hour=win_end)
+        # window may wrap past midnight; build windows with timedeltas to allow hour=24
+        day_start = datetime.combine(start.date(), datetime.min.time())
+        window_start = day_start + timedelta(hours=win_start)
+        window_end = day_start + timedelta(hours=win_end)
         if win_end <= win_start:
             window_end += timedelta(days=1)
 
