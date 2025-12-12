@@ -484,7 +484,10 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Weekly Analysis -->
             <div class="glass-card p-6 lg:col-span-2 h-80 flex flex-col">
-                <h3 class="text-sm font-bold text-sub mb-4">Productivity vs Distraction (7 Days)</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-bold text-sub">Productivity vs Distraction (7 Days)</h3>
+                    <span class="text-[10px] font-semibold text-sub bg-white/20 px-2 py-0.5 rounded-full">Hours</span>
+                </div>
                 <div class="flex-1 relative w-full">
                     <canvas id="barChart"></canvas>
                 </div>
@@ -505,7 +508,10 @@
             
             <!-- Cognitive Metrics -->
             <div class="glass-card p-6 flex flex-col gap-6">
-                <h3 class="text-sm font-bold text-sub uppercase tracking-wider">Flow State Tracker</h3>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-sub uppercase tracking-wider">Flow State Tracker</h3>
+                    <span class="text-[10px] font-semibold text-sub bg-white/20 px-2 py-0.5 rounded-full">Hours</span>
+                </div>
                 <!-- Flow Chart -->
                 <div class="relative w-full h-40">
                     <canvas id="flowChart"></canvas>
@@ -1415,11 +1421,18 @@
             if (!barChart) {
                 barChart = new Chart(ctx, {
                     type: 'bar',
-                    data: { labels, datasets: [{ data: values, backgroundColor: accentColor, borderRadius: 6 }] },
+                    data: { labels, datasets: [{ data: values, label: 'Hours', backgroundColor: accentColor, borderRadius: 6 }] },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => `${ctx.parsed.y.toFixed(1)}h`
+                                }
+                            }
+                        },
                         scales: {
                             x: { grid: { display: false }, ticks: { color: subColor } },
                             y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { display: false } }
@@ -1438,6 +1451,7 @@
             const canvas = document.getElementById('flowChart');
             if (!canvas) return;
             const { labels, buckets } = buildHourBuckets(hourTimeline);
+            const values = buckets.map(v => v / 60);
             const styles = getComputedStyle(document.documentElement);
             const accentColor = styles.getPropertyValue('--accent-color').trim();
             const subColor = styles.getPropertyValue('--text-sub').trim();
@@ -1446,11 +1460,18 @@
             if (!flowChart) {
                 flowChart = new Chart(ctx, {
                     type: 'bar',
-                    data: { labels, datasets: [{ data: buckets, backgroundColor: accentColor, borderRadius: 10, borderSkipped: false, barThickness: 16 }] },
+                    data: { labels, datasets: [{ data: values, label: 'Hours', backgroundColor: accentColor, borderRadius: 10, borderSkipped: false, barThickness: 16 }] },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => `${ctx.parsed.y.toFixed(1)}h`
+                                }
+                            }
+                        },
                         scales: {
                             x: { grid: { display: false }, ticks: { color: subColor, font: { size: 10 } }, border: { display: false } },
                             y: { display: false }
@@ -1460,7 +1481,7 @@
             }
 
             flowChart.data.labels = labels;
-            flowChart.data.datasets[0].data = buckets;
+            flowChart.data.datasets[0].data = values;
             flowChart.data.datasets[0].backgroundColor = accentColor;
             flowChart.update();
         }
