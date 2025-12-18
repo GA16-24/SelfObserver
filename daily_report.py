@@ -9,7 +9,6 @@ import behavior_digital_twin
 import behavior_model
 import time_series_forecasting
 from selfobserver.capture import is_ignored_window
-from selfobserver.config import ALLOWED_MODES
 
 # === Obsidian Pfad ===
 VAULT_PATH = r"D:\\40-Personal\\003-ObsidianVault\\My awesome vault"
@@ -749,7 +748,7 @@ def format_report(date_str, durations, longest_segment, switches, entries_count,
                 ]
             )
     else:
-        lines.append("Keine Clusterinformationen verfügbar.\n")
+        lines.append("Keine Clusterinformationen verfügbar.")
 
     lines.append("## 5) Transitions & Routines (State Machine View)")
     lines.append("### Most common transitions")
@@ -916,5 +915,5 @@ def generate_daily_report():
 
 
 if __name__ == "__main__":
-    path = generate_daily_report()
-    print("Tagesbericht gespeichert:", path)
+    report_path = generate_daily_report()
+    print("Tagesbericht gespeichert:", report_path)
